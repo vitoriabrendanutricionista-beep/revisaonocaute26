@@ -513,25 +513,121 @@
   .type-pill .d{width:7px;height:7px;border-radius:50%;}
   .type-pill.sel{ color:#fff; border-color:transparent; box-shadow:0 6px 16px -6px rgba(0,0,0,0.6);}
 
+  /* ---------- BANCO DE PROFS ---------- */
+  .profbank-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:16px; }
+  .profbank-card{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:16px; padding:18px;
+    box-shadow:var(--shadow); cursor:pointer; transition:transform .15s, border-color .15s; text-align:center;
+  }
+  .profbank-card:hover{ transform:translateY(-3px); border-color:rgba(255,255,255,0.22); }
+  .profbank-avatar{
+    width:52px; height:52px; border-radius:15px; background:linear-gradient(135deg, var(--violet), var(--pink));
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:19px; color:#fff;
+    margin:0 auto 12px;
+  }
+  .profbank-nome{ font-weight:600; font-size:14.5px; margin-bottom:4px; }
+  .profbank-carac{
+    font-size:11px; color:var(--ink-faint); margin-bottom:12px; line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .profbank-count{ font-size:30px; font-weight:700; line-height:1; }
+  .profbank-count.zero{ color:var(--ink-faint); }
+  .profbank-count-label{ font-size:10.5px; color:var(--ink-faint); margin-top:4px; }
+  .profbank-links{ display:flex; gap:6px; justify-content:center; margin-top:11px; }
+  .profbank-links a{
+    font-size:10.5px; color:var(--sky); text-decoration:none; border:1px solid rgba(56,189,248,0.3);
+    padding:3px 9px; border-radius:20px; transition:background .15s;
+  }
+  .profbank-links a:hover{ background:rgba(56,189,248,0.14); }
+  .prof-grav-box{
+    margin:4px 0 6px; padding:12px; border-radius:12px;
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+  }
+  .prof-grav-box h4{ margin:0 0 9px; font-size:12px; color:var(--ink-dim); font-weight:600; }
+  .prof-grav-row{ font-size:12px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; gap:8px; align-items:center; }
+  .prof-grav-row:last-child{ border-bottom:none; }
+  .prof-grav-row .pg-etapa{ margin-left:auto; font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:20px; color:#fff; }
+
+  /* ---------- OUTROS / MINHAS ---------- */
+  .outros-cols{ display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  .outro-item{
+    background:rgba(255,255,255,0.045); border:1px solid rgba(255,255,255,0.08); border-radius:12px;
+    padding:12px 13px; display:flex; gap:11px; align-items:flex-start;
+  }
+  .outro-item.done .outro-tarefa{ text-decoration:line-through; color:var(--ink-faint); }
+  .outro-body{ flex:1; min-width:0; }
+  .outro-tarefa{ font-size:13px; font-weight:600; margin-bottom:5px; white-space:pre-wrap; }
+  .outro-meta{ font-size:11px; color:var(--ink-faint); display:flex; align-items:center; gap:6px; margin-top:3px; }
+  .outro-meta a{ color:var(--sky); text-decoration:underline; word-break:break-all; }
+  .outro-actions{ display:flex; flex-direction:column; gap:6px; }
+
+  .minhas-group{ margin-bottom:22px; }
+  .minhas-group-head{
+    display:flex; align-items:center; gap:9px; font-weight:600; font-size:13.5px;
+    color:var(--ink-dim); margin-bottom:11px;
+  }
+  .minhas-group-head .col-count{ background:rgba(255,255,255,0.08); }
+  .minhas-list{ display:flex; flex-direction:column; gap:9px; max-width:900px; }
+  .minha-item{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
+    padding:12px 14px; display:flex; gap:12px; align-items:center;
+  }
+  .minha-item.done .minha-title{ text-decoration:line-through; color:var(--ink-faint); }
+  .minha-body{ flex:1; min-width:0; }
+  .minha-title{ font-size:13.5px; font-weight:600; }
+  .minha-meta{ font-size:11px; color:var(--ink-faint); margin-top:3px; }
+
   /* ---------- IMPRESSÃO / PDF ---------- */
   @media print{
-    body{ background:#fff !important; color:#111 !important; }
-    .sidebar, .topbar button, .filter-bar, .overlay, .toast, .user-chip, .chip-add-hint{ display:none !important; }
+    @page{ size:A4 landscape; margin:12mm; }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    html, body{
+      background:#fff !important; color:#111 !important;
+      height:auto !important; overflow:visible !important;
+    }
+    .app{ display:block !important; }
+    .sidebar, .toast, .overlay, #dbErrorBox, .user-chip,
+    .topbar button, .filter-bar, .chip-add-hint, .todo-del, .outro-actions, .prof-td-del{
+      display:none !important;
+    }
     .main{ padding:0 !important; }
     .view{ display:none !important; }
     .view.printing{ display:block !important; }
-    .prof-table-wrap, .cal-wrap, .studio-wrap, .col, .kanban-col, .dash-col, .kpi-card, .team-card, .event-item, .todo-item{
-      background:#fff !important; border:1px solid #ccc !important; box-shadow:none !important; color:#111 !important;
+    .view.printing .topbar{ display:none !important; }
+    .print-header{ display:block !important; margin:0 0 12px; }
+    .print-header h2{ color:#111 !important; font-size:17px; }
+    .print-header p{ color:#555 !important; }
+
+    .prof-table-wrap, .dash-col, .minha-item, .outro-item, .todo-item, .event-item{
+      background:#fff !important; border:1px solid #bbb !important; box-shadow:none !important;
+      color:#111 !important; overflow:visible !important; padding:8px !important;
     }
-    .prof-table thead th{ color:#333 !important; border-bottom:1px solid #999 !important; }
-    .prof-table tbody td{ color:#111 !important; border-bottom:1px solid #ddd !important; }
-    .prof-group-row td{ background:#eee !important; color:#111 !important; }
-    .prof-table a{ color:#0645ad !important; }
-    .title-block h1, .title-block p, .kanban-tema, .rec-tema, .event-desc, .todo-text{ color:#111 !important; }
-    .print-header{ display:block !important; margin-bottom:14px; }
-    .prof-table{ min-width:0 !important; }
+    .prof-table-wrap{ max-height:none !important; }
+    .prof-table{ min-width:0 !important; width:100% !important; table-layout:fixed; }
+    .prof-table thead th{
+      color:#000 !important; border-bottom:2px solid #666 !important;
+      font-size:9.5px !important; padding:6px 5px !important;
+    }
+    .prof-table tbody td{
+      color:#111 !important; border-bottom:1px solid #ddd !important;
+      font-size:10px !important; padding:6px 5px !important;
+      word-break:break-word; white-space:normal !important;
+    }
+    .prof-group-row td{ background:#e9e2f7 !important; color:#111 !important; font-size:11px !important; }
     .prof-td-ref{ max-width:none !important; white-space:normal !important; }
-    .board, .kanban-board{ grid-template-columns:repeat(2,1fr) !important; }
+    .prof-table a, .outro-meta a{ color:#0645ad !important; }
+    .prof-table tbody tr, .minha-item, .outro-item, .event-item{ page-break-inside:avoid; }
+    .todo-check{ border:1.5px solid #333 !important; }
+    .todo-check.checked{ background:#c9c9c9 !important; }
+    .todo-check .icon{ color:#000 !important; }
+    .kanban-fmt-tag{ color:#fff !important; font-size:9px !important; }
+
+    .minhas-group-head, .dash-col-head, .minha-title, .minha-meta,
+    .outro-tarefa, .outro-meta, .title-block h1, .title-block p,
+    .todo-text, .event-desc{ color:#111 !important; }
+    .minhas-group{ page-break-inside:auto; }
+    .outros-cols{ grid-template-columns:1fr 1fr !important; }
+    .minhas-list, .dash-list{ gap:6px !important; }
   }
   .print-header{ display:none; }
   .print-header h2{ margin:0 0 4px; font-size:18px; }
@@ -551,6 +647,8 @@
     .kpi-grid{grid-template-columns:repeat(2,1fr);}
     .kanban-board{grid-template-columns:1fr;}
     .team-grid{grid-template-columns:1fr 1fr;}
+    .outros-cols{grid-template-columns:1fr;}
+    .profbank-grid{grid-template-columns:1fr 1fr;}
     .cal-grid{gap:5px;}
     .day-cell{min-height:80px; padding:6px;}
   }
@@ -605,6 +703,21 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         Equipe
         <span class="nav-badge" id="badge-team">0</span>
+      </div>
+      <div class="nav-item" data-view="profsbank">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+        Banco de Profs
+        <span class="nav-badge" id="badge-profsbank">0</span>
+      </div>
+      <div class="nav-item" data-view="outros">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+        Portão de Prova / Outros
+        <span class="nav-badge" id="badge-outros">0</span>
+      </div>
+      <div class="nav-item" data-view="minhas">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        Minhas Responsabilidades
+        <span class="nav-badge" id="badge-minhas">0</span>
       </div>
       <div class="nav-item" data-view="events">
         <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
@@ -821,17 +934,78 @@
           <h1>To-Do</h1>
           <p>Tarefas gerais da Revisão Nocaute — acrescente e marque o que já foi feito.</p>
         </div>
-      </div>
-
-      <div class="todo-add-row">
-        <input type="text" id="todoInput" placeholder="Descreva a tarefa...">
-        <button class="btn btn-primary" id="btnAddTodo">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Adicionar
-        </button>
+        <button class="btn btn-primary" id="btnAddTodo"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Nova tarefa</button>
       </div>
 
       <div class="todo-list" id="todoList"></div>
+    </section>
+
+    <!-- VIEW: BANCO DE PROFS -->
+    <section class="view" id="view-profsbank">
+      <div class="topbar">
+        <div class="title-block">
+          <h1>Banco de Profs</h1>
+          <p>Cadastro dos professores — características, arte da camisa e quantos vídeos cada um tem pra gravar.</p>
+        </div>
+        <button class="btn btn-primary" id="btnNewProfessor"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Novo prof</button>
+      </div>
+      <div class="profbank-grid" id="profbankGrid"></div>
+    </section>
+
+    <!-- VIEW: PORTAO DE PROVA / OUTROS -->
+    <section class="view" id="view-outros">
+      <div class="topbar">
+        <div class="title-block">
+          <h1>Portão de Prova / Outros</h1>
+          <p>Tarefas avulsas com responsável, link do arquivo e status.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="filter-bar">
+            <select class="filter-select" id="filterOutrosResp"><option value="">Todos os responsáveis</option></select>
+          </div>
+          <button class="btn btn-ghost" id="btnExportOutros">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Exportar PDF
+          </button>
+          <button class="btn btn-primary" id="btnNewOutro"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Nova tarefa</button>
+        </div>
+      </div>
+
+      <div class="print-header"><h2>Portão de Prova / Outros — Revisão Nocaute</h2><p id="outrosPrintSubtitle"></p></div>
+
+      <div class="outros-cols">
+        <div class="dash-col">
+          <div class="dash-col-head">Pendentes <span class="col-count" id="outrosPendCount">0</span></div>
+          <div id="outrosPendList" class="dash-list"></div>
+        </div>
+        <div class="dash-col">
+          <div class="dash-col-head">Concluído <span class="col-count" id="outrosOkCount">0</span></div>
+          <div id="outrosOkList" class="dash-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW: MINHAS RESPONSABILIDADES -->
+    <section class="view" id="view-minhas">
+      <div class="topbar">
+        <div class="title-block">
+          <h1>Minhas Responsabilidades</h1>
+          <p id="minhasSubtitle">Tudo que está no seu nome, em um lugar só.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="filter-bar">
+            <select class="filter-select" id="filterMinhasPessoa"></select>
+          </div>
+          <button class="btn btn-ghost" id="btnExportMinhas">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Exportar PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="print-header"><h2>Minhas Responsabilidades — Revisão Nocaute</h2><p id="minhasPrintSubtitle"></p></div>
+
+      <div id="minhasContent"></div>
     </section>
 
     <!-- VIEW: KANBAN DE PRODUÇÃO -->
@@ -936,6 +1110,22 @@
       <label>Responsável</label>
       <select class="status-select" id="postResponsavel"></select>
     </div>
+    <div class="field">
+      <label>Professor</label>
+      <select class="status-select" id="postProfessor"></select>
+    </div>
+    <div class="field">
+      <label>Texto / copy do post</label>
+      <textarea id="postTexto" placeholder="Cole aqui o texto que vai no post..."></textarea>
+    </div>
+    <div class="field">
+      <label>Arte pronta (link)</label>
+      <input type="text" id="postArte" placeholder="Link do Drive, Canva, Figma...">
+    </div>
+    <div class="field">
+      <label>Referência</label>
+      <input type="text" id="postReferencia" placeholder="Link ou descrição da referência">
+    </div>
     <div class="field" id="postStatusRow" style="display:none;">
       <label>Status de produção</label>
       <div style="font-size:12px; color:var(--ink-faint);">
@@ -969,7 +1159,7 @@
     <div class="row2">
       <div class="field">
         <label>Quem (prof)</label>
-        <input type="text" id="cardProf" list="profNamesList" placeholder="Ex: nome do professor">
+        <select class="status-select" id="cardProf"></select>
       </div>
       <div class="field">
         <label>Data de postagem</label>
@@ -998,12 +1188,23 @@
       <label>Copy do material</label>
       <textarea id="cardCopy" placeholder="Cole aqui a copy que vai ser gravada..."></textarea>
     </div>
-    <div class="field">
-      <label>Status</label>
-      <select id="cardStatus">
-        <option value="a-gravar">A Gravar</option>
-        <option value="concluido">Concluído</option>
-      </select>
+    <div class="row2">
+      <div class="field">
+        <label>Status</label>
+        <select id="cardStatus">
+          <option value="a-gravar">A Gravar</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Etapa de produção</label>
+        <select class="status-select" id="cardEtapa">
+          <option value="producao">Produção</option>
+          <option value="edicao">Edição</option>
+          <option value="revisao">Revisão Final</option>
+          <option value="pronto">Pronto pra Postar</option>
+        </select>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="btnDeleteCard" style="display:none;">Excluir</button>
@@ -1039,7 +1240,7 @@
     </div>
     <div class="field">
       <label>Professor</label>
-      <input type="text" id="studioProf" list="profNamesList" placeholder="Ex: nome do professor">
+      <select class="status-select" id="studioProf"></select>
     </div>
     <div class="field">
       <label>Tipo</label>
@@ -1125,6 +1326,10 @@
       <label>O que vai acontecer</label>
       <textarea id="eventoDescricao" placeholder="Descreva o que vai rolar nesse dia..."></textarea>
     </div>
+    <div class="field">
+      <label>Responsável</label>
+      <select class="status-select" id="eventoResponsavel"></select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="btnDeleteEvento" style="display:none;">Excluir</button>
       <button class="btn btn-primary" id="btnSaveEvento">Salvar acontecimento</button>
@@ -1132,7 +1337,94 @@
   </div>
 </div>
 
+<!-- MODAL: TAREFA TO-DO -->
+<div class="overlay" id="overlayTodo">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="todoModalTitle">Nova tarefa</h2>
+      <button class="modal-close" data-close><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+    <div class="field">
+      <label>Descrição da tarefa</label>
+      <textarea id="todoTexto" placeholder="O que precisa ser feito?"></textarea>
+    </div>
+    <div class="field">
+      <label>Responsável</label>
+      <select class="status-select" id="todoResponsavel"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteTodo" style="display:none;">Excluir</button>
+      <button class="btn btn-primary" id="btnSaveTodo">Salvar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PORTAO DE PROVA / OUTROS -->
+<div class="overlay" id="overlayOutro">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="outroModalTitle">Nova tarefa</h2>
+      <button class="modal-close" data-close><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+    <div class="field">
+      <label>To-do</label>
+      <textarea id="outroTarefa" placeholder="O que precisa ser feito?"></textarea>
+    </div>
+    <div class="field">
+      <label>Responsável</label>
+      <select class="status-select" id="outroResponsavel"></select>
+    </div>
+    <div class="field">
+      <label>Link do arquivo</label>
+      <input type="text" id="outroLink" placeholder="Link do Drive, Canva, PDF...">
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select class="status-select" id="outroStatus">
+        <option value="pendente">Pendente</option>
+        <option value="concluido">Concluído</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteOutro" style="display:none;">Excluir</button>
+      <button class="btn btn-primary" id="btnSaveOutro">Salvar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PROFESSOR -->
+<div class="overlay" id="overlayProfessor">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="professorModalTitle">Novo prof</h2>
+      <button class="modal-close" data-close><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="professorNome" placeholder="Nome do professor">
+    </div>
+    <div class="field">
+      <label>Características</label>
+      <textarea id="professorCaracteristicas" placeholder="Estilo, matérias que domina, tom de fala, particularidades..."></textarea>
+    </div>
+    <div class="field">
+      <label>Arte da camisa (link)</label>
+      <input type="text" id="professorArte" placeholder="Link da arte no Drive, Canva...">
+    </div>
+    <div class="field">
+      <label>Arquivos (link)</label>
+      <input type="text" id="professorArquivos" placeholder="Pasta de arquivos, materiais, contratos...">
+    </div>
+    <div id="professorGravacoes"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteProfessor" style="display:none;">Excluir</button>
+      <button class="btn btn-primary" id="btnSaveProfessor">Salvar prof</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+<div id="dbErrorBox" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:600; background:#3b1020; border:1px solid #f87171; color:#ffd9d9; padding:12px 14px; border-radius:12px; font-size:12.5px; line-height:1.45; font-family:Poppins,sans-serif; white-space:pre-wrap; cursor:pointer;" onclick="this.style.display='none'"></div>
 
 <!-- LOGIN -->
 <div class="overlay show" id="overlayLogin" style="z-index:500;">
@@ -1197,6 +1489,12 @@
   let studioEvents = [];
   let todos = [];
   let eventos = [];
+  let outros = [];
+  let professores = [];
+  let editingProfessorId = null;
+  let editingTodoId = null;
+  let editingOutroId = null;
+  let minhasPessoa = '';
   let people = [];
   let currentUser = null;
   let currentMonth = new Date(); currentMonth.setDate(1);
@@ -1222,6 +1520,7 @@
   let filterStudioProf = '';
   let filterProfsProf = '';
   let filterProfsStatus = '';
+  let filterOutrosResp = '';
 
   function getWeekStart(d){
     const nd = new Date(d);
@@ -1280,24 +1579,32 @@
 
   const MAP = {
     posts: {
-      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null }),
-      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null })
+      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null, texto:p.texto||null, arte:p.arte||null, referencia:p.referencia||null, professor:p.professor||null }),
+      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'' })
     },
     cards: {
-      to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null }),
-      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', ref:r.ref||'', copy:r.copy||'', status:r.status||'a-gravar', formato:r.formato||'Feed', local:r.local||'', dataPostagem:r.data_postagem||'', fromPostId:r.from_post_id||null })
+      to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null, etapa:c.etapa||'producao' }),
+      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', ref:r.ref||'', copy:r.copy||'', status:r.status||'a-gravar', formato:r.formato||'Feed', local:r.local||'', dataPostagem:r.data_postagem||'', fromPostId:r.from_post_id||null, etapa:r.etapa||'producao' })
     },
     studio_events: {
       to:   e => ({ id:e.id, date:e.date||null, start_time:e.start||null, end_time:e.end||null, tipo:e.tipo||null, local:e.local||null, tema:e.tema||null, professor:e.professor||null, descricao:e.descricao||null }),
       from: r => ({ id:r.id, date:r.date||'', start:r.start_time||'09:00', end:r.end_time||'10:00', tipo:r.tipo||'Gravação', local:r.local||'Studio 1', tema:r.tema||'', professor:r.professor||'', descricao:r.descricao||'' })
     },
     todos: {
-      to:   t => ({ id:t.id, text:t.text||null, done:!!t.done }),
-      from: r => ({ id:r.id, text:r.text||'', done:!!r.done })
+      to:   t => ({ id:t.id, text:t.text||null, done:!!t.done, responsavel:t.responsavel||null }),
+      from: r => ({ id:r.id, text:r.text||'', done:!!r.done, responsavel:r.responsavel||'' })
     },
     eventos: {
-      to:   e => ({ id:e.id, date:e.date||null, descricao:e.descricao||null }),
-      from: r => ({ id:r.id, date:r.date||'', descricao:r.descricao||'' })
+      to:   e => ({ id:e.id, date:e.date||null, descricao:e.descricao||null, responsavel:e.responsavel||null }),
+      from: r => ({ id:r.id, date:r.date||'', descricao:r.descricao||'', responsavel:r.responsavel||'' })
+    },
+    professores: {
+      to:   p => ({ id:p.id, nome:p.nome||null, caracteristicas:p.caracteristicas||null, arte_camisa:p.arteCamisa||null, arquivos:p.arquivos||null }),
+      from: r => ({ id:r.id, nome:r.nome||'', caracteristicas:r.caracteristicas||'', arteCamisa:r.arte_camisa||'', arquivos:r.arquivos||'' })
+    },
+    outros: {
+      to:   o => ({ id:o.id, tarefa:o.tarefa||null, responsavel:o.responsavel||null, link:o.link||null, status:o.status||'pendente' }),
+      from: r => ({ id:r.id, tarefa:r.tarefa||'', responsavel:r.responsavel||'', link:r.link||'', status:r.status||'pendente' })
     },
     people: {
       to:   p => ({ id:p.id, nome:p.nome||null, setor:p.setor||null, usuario:p.usuario||null, senha:p.senha||null, permissao:p.permissao||'Editor' }),
@@ -1305,29 +1612,44 @@
     }
   };
 
+  function showDbError(acao, e){
+    let msg = (e && e.message) ? e.message : String(e);
+    try{
+      const j = JSON.parse(msg.slice(msg.indexOf('{')));
+      if(j.message) msg = j.message + (j.hint ? ' | ' + j.hint : '');
+    }catch(_){}
+    if(msg.length > 220) msg = msg.slice(0,220) + '...';
+    const box = document.getElementById('dbErrorBox');
+    box.textContent = 'Erro ao ' + acao + ': ' + msg;
+    box.style.display = 'block';
+    console.error('[Supabase] ' + acao, e);
+  }
+
   async function saveTable(table, arr){
     try{
       await dbSync(table, arr.map(MAP[table].to));
     }catch(e){
       console.error('Erro ao salvar em ' + table, e);
-      toast(ICONS.alert + ' Erro ao salvar no banco');
+      showDbError('salvar', e);
     }
   }
 
   async function loadAll(){
     try{
-      const [p, c, s, t, ev] = await Promise.all([
+      const [p, c, s, t, ev, ou, pr] = await Promise.all([
         dbSelect('posts'), dbSelect('cards'), dbSelect('studio_events'),
-        dbSelect('todos'), dbSelect('eventos')
+        dbSelect('todos'), dbSelect('eventos'), dbSelect('outros'), dbSelect('professores')
       ]);
       posts        = p.map(MAP.posts.from);
       cards        = c.map(MAP.cards.from);
       studioEvents = s.map(MAP.studio_events.from);
       todos        = t.map(MAP.todos.from);
       eventos      = ev.map(MAP.eventos.from);
+      outros       = ou.map(MAP.outros.from);
+      professores  = pr.map(MAP.professores.from);
     }catch(e){
       console.error('Erro ao carregar dados', e);
-      toast(ICONS.alert + ' Erro ao carregar do banco');
+      showDbError('carregar', e);
     }
     posts.forEach(p=>{ if(!p.status) p.status = 'producao'; if(p.responsavel===undefined) p.responsavel = ''; });
     renderCalendar();
@@ -1337,12 +1659,17 @@
     renderKanban();
     renderTeam();
     renderEvents();
+    renderOutros();
+    renderMinhas();
+    renderProfBank();
     renderDashboard();
     updateBadges();
   }
 
   async function savePeople(){ await saveTable('people', people); }
   async function saveEventos(){ await saveTable('eventos', eventos); }
+  async function saveOutros(){ await saveTable('outros', outros); }
+  async function saveProfessores(){ await saveTable('professores', professores); }
   async function savePosts(){ await saveTable('posts', posts); }
   async function saveCards(){ await saveTable('cards', cards); }
   async function saveStudioEvents(){ await saveTable('studio_events', studioEvents); }
@@ -1359,17 +1686,24 @@
     $('#badge-profs').textContent = distinctProfs().filter(prof=> cards.some(c=>c.prof===prof && c.status==='a-gravar')).length;
     const todayStr0 = fmtDateFromObj(new Date());
     $('#badge-events').textContent = eventos.filter(ev=> ev.date >= todayStr0).length;
+    $('#badge-outros').textContent = outros.filter(o=> o.status !== 'concluido').length;
+    $('#badge-profsbank').textContent = professores.length;
+    $('#badge-minhas').textContent = minhasPendentes(currentUser ? currentUser.nome : '').length;
     if(pulseCards){
       const b = $('#badge-cards');
       b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     }
     refreshFilterOptions();
     renderProfs();
+    renderOutros();
+    renderMinhas();
+    renderProfBank();
     renderDashboard();
   }
 
   function distinctProfs(){
     const set = new Set();
+    professores.forEach(p=>{ if(p.nome && p.nome.trim()) set.add(p.nome.trim()); });
     cards.forEach(c=>{ if(c.prof && c.prof.trim()) set.add(c.prof.trim()); });
     studioEvents.forEach(ev=>{ if(ev.professor && ev.professor.trim()) set.add(ev.professor.trim()); });
     return Array.from(set).sort((a,b)=> a.localeCompare(b));
@@ -1391,7 +1725,29 @@
     fillSelect('#filterStudioProf', profNames, 'Todos os profs', filterStudioProf);
     fillSelect('#filterProfsProf', profNames, 'Todos os profs', filterProfsProf);
     fillSelect('#filterCalResp', respNames, 'Todos os responsáveis', filterCalResp);
+    fillSelect('#filterOutrosResp', respNames, 'Todos os responsáveis', filterOutrosResp);
+    ['#postResponsavel','#todoResponsavel','#outroResponsavel','#eventoResponsavel'].forEach(sel=>{
+      const el = $(sel); if(!el) return;
+      const cur = el.value;
+      el.innerHTML = '<option value="">Sem responsável</option>' +
+        respNames.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');
+      if(respNames.includes(cur)) el.value = cur;
+    });
+    const mp = $('#filterMinhasPessoa');
+    if(mp){
+      const cur = minhasPessoa || (currentUser ? currentUser.nome : '');
+      mp.innerHTML = respNames.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');
+      if(respNames.includes(cur)) mp.value = cur;
+    }
     fillSelect('#filterKanbanResp', respNames, 'Todos os responsáveis', filterKanbanResp);
+
+    ['#cardProf','#studioProf','#postProfessor'].forEach(sel=>{
+      const el = $(sel); if(!el) return;
+      const cur = el.value;
+      el.innerHTML = '<option value="">Sem professor</option>' +
+        profNames.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');
+      if(profNames.includes(cur)) el.value = cur;
+    });
 
     const allNames = Array.from(new Set([...profNames, ...respNames])).sort((a,b)=> a.localeCompare(b));
     const dl = $('#profNamesList');
@@ -1511,8 +1867,13 @@
       $('#postModalTitle').textContent = 'Editar post';
       $('#postHorario').value = p.horario;
       $('#postTema').value = p.tema || '';
+      $('#postTexto').value = p.texto || '';
+      $('#postArte').value = p.arte || '';
+      $('#postReferencia').value = p.referencia || '';
       selectFmt(p.formato);
       populateResponsavelSelect(p.responsavel);
+      refreshFilterOptions();
+      $('#postProfessor').value = p.professor || '';
       $('#postStatusRow').style.display = 'block';
       const badge = $('#postStatusBadge');
       badge.textContent = STATUS_LABELS[p.status || 'producao'];
@@ -1522,8 +1883,13 @@
       $('#postModalTitle').textContent = 'Novo post';
       $('#postHorario').value = '09:00';
       $('#postTema').value = '';
+      $('#postTexto').value = '';
+      $('#postArte').value = '';
+      $('#postReferencia').value = '';
       selectFmt('Feed');
       populateResponsavelSelect('');
+      refreshFilterOptions();
+      $('#postProfessor').value = '';
       $('#postStatusRow').style.display = 'none';
       $('#btnDeletePost').style.display='none';
     }
@@ -1554,8 +1920,12 @@
     if(editingPostId){
       post = posts.find(p=>p.id===editingPostId);
       post.horario = horario; post.formato = selectedFmt; post.tema = tema; post.responsavel = responsavel;
+      post.texto = $('#postTexto').value; post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
+      post.professor = $('#postProfessor').value;
     } else {
-      post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status:'producao' };
+      post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status:'producao',
+               texto: $('#postTexto').value, arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
+               professor: $('#postProfessor').value };
       posts.push(post);
     }
     await savePosts();
@@ -1568,9 +1938,10 @@
         linked.tema = tema;
         linked.dataPostagem = post.date;
         linked.formato = selectedFmt;
-        if(!linked.prof && responsavel) linked.prof = responsavel;
+        linked.etapa = post.status || 'producao';
+        if(!linked.prof && post.professor) linked.prof = post.professor;
       } else {
-        linked = { id: uid(), tema, prof: responsavel || '', ref:'', copy:'', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date };
+        linked = { id: uid(), tema, prof: post.professor || '', ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
         cards.push(linked);
         updateBadges(true);
         toast(ICONS.film + ' Adicionado às Gravações e a Gravações por Prof');
@@ -1785,6 +2156,7 @@
   $$('#localPicker .type-pill').forEach(p=> p.addEventListener('click', ()=> selectLocal(p.dataset.local)));
 
   function openStudioModal(dateStr, startHour, eventId){
+    refreshFilterOptions();
     editingStudioId = eventId;
     editingStudioDate = dateStr;
     const overlay = $('#overlayStudio');
@@ -1825,7 +2197,7 @@
     if(end <= start){ toast(ICONS.alert + ' O horário final precisa ser depois do inicial'); return; }
     const tema = $('#studioTema').value.trim();
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o evento'); return; }
-    const professor = $('#studioProf').value.trim();
+    const professor = $('#studioProf').value;
     const descricao = $('#studioDescricao').value;
 
     if(editingStudioId){
@@ -1874,6 +2246,7 @@
 
   function openCardModal(cardId, prefillProf){
     editingCardId = cardId;
+    refreshFilterOptions();
     const overlay = $('#overlayCard');
     if(cardId){
       const c = cards.find(x=>x.id===cardId);
@@ -1883,6 +2256,7 @@
       $('#cardRef').value = c.ref || '';
       $('#cardCopy').value = c.copy || '';
       $('#cardStatus').value = c.status || 'a-gravar';
+      $('#cardEtapa').value = c.etapa || 'producao';
       $('#cardDataPostagem').value = c.dataPostagem || '';
       selectCardFmt(c.formato || 'Feed');
       selectCardLocal(c.local || '');
@@ -1891,6 +2265,7 @@
       $('#cardModalTitle').textContent = 'Novo card';
       $('#cardTema').value=''; $('#cardProf').value= prefillProf || ''; $('#cardRef').value=''; $('#cardCopy').value='';
       $('#cardStatus').value='a-gravar';
+      $('#cardEtapa').value='producao';
       $('#cardDataPostagem').value = '';
       selectCardFmt('Feed');
       selectCardLocal('');
@@ -1907,10 +2282,11 @@
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o card'); return; }
     const data = {
       tema,
-      prof: $('#cardProf').value.trim(),
+      prof: $('#cardProf').value,
       ref: $('#cardRef').value.trim(),
       copy: $('#cardCopy').value,
       status: $('#cardStatus').value,
+      etapa: $('#cardEtapa').value,
       formato: selectedCardFmt,
       local: selectedCardLocal,
       dataPostagem: $('#cardDataPostagem').value
@@ -1932,9 +2308,10 @@
         post.tema = card.tema;
         post.date = card.dataPostagem;
         post.formato = card.formato;
-        if(!post.responsavel && card.prof) post.responsavel = card.prof;
+        if(card.etapa) post.status = card.etapa;
+        if(!post.professor && card.prof) post.professor = card.prof;
       } else {
-        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel: card.prof || '', status:'producao', fromCardId: card.id };
+        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel:'', professor: card.prof || '', status: card.etapa || 'producao', fromCardId: card.id };
         posts.push(post);
         toast(ICONS.calendar + ' Também entrou no Cronograma e na Produção');
       }
@@ -2067,66 +2444,411 @@
   });
 
   // ---------- MODAL CLOSE / OVERLAY ----------
-  $$('[data-close]').forEach(btn=> btn.addEventListener('click', ()=>{ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); }));
+  $$('[data-close]').forEach(btn=> btn.addEventListener('click', ()=>{ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); closeTodoModal(); closeOutroModal(); closeProfessorModal(); }));
   $('#overlayPost').addEventListener('click', (e)=>{ if(e.target.id==='overlayPost') closePostModal(); });
   $('#overlayCard').addEventListener('click', (e)=>{ if(e.target.id==='overlayCard') closeCardModal(); });
   $('#overlayStudio').addEventListener('click', (e)=>{ if(e.target.id==='overlayStudio') closeStudioModal(); });
   $('#overlayPerson').addEventListener('click', (e)=>{ if(e.target.id==='overlayPerson') closePersonModal(); });
   $('#overlayEvento').addEventListener('click', (e)=>{ if(e.target.id==='overlayEvento') closeEventoModal(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); } });
+  $('#overlayTodo').addEventListener('click', (e)=>{ if(e.target.id==='overlayTodo') closeTodoModal(); });
+  $('#overlayOutro').addEventListener('click', (e)=>{ if(e.target.id==='overlayOutro') closeOutroModal(); });
+  $('#overlayProfessor').addEventListener('click', (e)=>{ if(e.target.id==='overlayProfessor') closeProfessorModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); closeTodoModal(); closeOutroModal(); closeProfessorModal(); } });
 
   // ---------- TODO ----------
   function renderTodos(){
     const list = $('#todoList');
     list.innerHTML = '';
     if(todos.length === 0){
-      const empty = document.createElement('div');
-      empty.className = 'dash-empty';
-      empty.textContent = 'Nenhuma tarefa por aqui ainda.';
-      list.appendChild(empty);
+      list.innerHTML = '<div class="dash-empty">Nenhuma tarefa por aqui ainda.</div>';
       return;
     }
     todos.slice().reverse().forEach(t=>{
       const row = document.createElement('div');
       row.className = 'todo-item' + (t.done ? ' done' : '');
       row.innerHTML =
-        '<div class="todo-check'+(t.done?' checked':'')+'" data-id="'+t.id+'">'+(t.done ? ICONS.check : '')+'</div>'+
-        '<div class="todo-text">'+escapeHtml(t.text)+'</div>'+
-        '<button class="todo-del" data-id="'+t.id+'">'+ICONS.trash+'</button>';
+        '<div class="todo-check'+(t.done?' checked':'')+'">'+(t.done ? ICONS.check : '')+'</div>'+
+        '<div class="todo-text">'+escapeHtml(t.text)+
+          (t.responsavel ? '<div class="minha-meta">'+ICONS.user+' '+escapeHtml(t.responsavel)+'</div>' : '')+
+        '</div>'+
+        '<button class="todo-del">'+ICONS.trash+'</button>';
+      row.querySelector('.todo-check').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        t.done = !t.done;
+        await saveTodos(); renderTodos(); updateBadges();
+      });
+      row.querySelector('.todo-del').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        todos = todos.filter(x=>x.id!==t.id);
+        await saveTodos(); renderTodos(); updateBadges();
+      });
+      row.addEventListener('click', (e)=>{
+        if(e.target.closest('.todo-check') || e.target.closest('.todo-del')) return;
+        openTodoModal(t.id);
+      });
       list.appendChild(row);
     });
-    $$('.todo-check', list).forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        const t = todos.find(x=>x.id===el.dataset.id);
-        t.done = !t.done;
-        await saveTodos();
-        renderTodos();
-        updateBadges();
-      });
-    });
-    $$('.todo-del', list).forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        todos = todos.filter(x=>x.id!==el.dataset.id);
-        await saveTodos();
-        renderTodos();
-        updateBadges();
+  }
+
+  function openTodoModal(id){
+    editingTodoId = id;
+    refreshFilterOptions();
+    if(id){
+      const t = todos.find(x=>x.id===id);
+      $('#todoModalTitle').textContent = 'Editar tarefa';
+      $('#todoTexto').value = t.text || '';
+      $('#todoResponsavel').value = t.responsavel || '';
+      $('#btnDeleteTodo').style.display = 'inline-flex';
+    } else {
+      $('#todoModalTitle').textContent = 'Nova tarefa';
+      $('#todoTexto').value = '';
+      $('#todoResponsavel').value = currentUser ? currentUser.nome : '';
+      $('#btnDeleteTodo').style.display = 'none';
+    }
+    $('#overlayTodo').classList.add('show');
+  }
+  function closeTodoModal(){ $('#overlayTodo').classList.remove('show'); }
+
+  $('#btnAddTodo').addEventListener('click', ()=> openTodoModal(null));
+
+  $('#btnSaveTodo').addEventListener('click', async ()=>{
+    const text = $('#todoTexto').value.trim();
+    if(!text){ toast(ICONS.alert + ' Descreva a tarefa'); return; }
+    const responsavel = $('#todoResponsavel').value;
+    if(editingTodoId){
+      const t = todos.find(x=>x.id===editingTodoId);
+      t.text = text; t.responsavel = responsavel;
+    } else {
+      todos.push({ id: uid(), text, done:false, responsavel });
+    }
+    await saveTodos(); renderTodos(); updateBadges(); closeTodoModal();
+  });
+
+  $('#btnDeleteTodo').addEventListener('click', async ()=>{
+    todos = todos.filter(x=>x.id!==editingTodoId);
+    await saveTodos(); renderTodos(); updateBadges(); closeTodoModal();
+  });
+
+  // ---------- PORTAO DE PROVA / OUTROS ----------
+  function renderOutros(){
+    const pend = $('#outrosPendList'), ok = $('#outrosOkList');
+    if(!pend) return;
+    const lista = outros.filter(o=> !filterOutrosResp || o.responsavel === filterOutrosResp);
+    const sub = $('#outrosPrintSubtitle');
+    if(sub) sub.textContent = (filterOutrosResp ? 'Responsável: '+filterOutrosResp : 'Todos os responsáveis') + ' · ' + new Date().toLocaleDateString('pt-BR');
+
+    [[pend,'pendente','#outrosPendCount'],[ok,'concluido','#outrosOkCount']].forEach(([box, st, counter])=>{
+      const items = lista.filter(o=>o.status===st);
+      $(counter).textContent = items.length;
+      box.innerHTML = '';
+      if(items.length===0){
+        box.innerHTML = '<div class="dash-empty">Nada aqui.</div>';
+        return;
+      }
+      items.forEach(o=>{
+        const el = document.createElement('div');
+        el.className = 'outro-item' + (o.status==='concluido' ? ' done' : '');
+        const linkHtml = o.link
+          ? (/^https?:\/\//.test(o.link.trim())
+              ? '<a href="'+escapeHtml(o.link)+'" target="_blank" rel="noopener">'+escapeHtml(o.link)+'</a>'
+              : escapeHtml(o.link))
+          : '';
+        el.innerHTML =
+          '<div class="todo-check'+(o.status==='concluido'?' checked':'')+'">'+(o.status==='concluido'?ICONS.check:'')+'</div>'+
+          '<div class="outro-body">'+
+            '<div class="outro-tarefa">'+escapeHtml(o.tarefa)+'</div>'+
+            (o.responsavel ? '<div class="outro-meta">'+ICONS.user+escapeHtml(o.responsavel)+'</div>' : '')+
+            (linkHtml ? '<div class="outro-meta">'+ICONS.link+linkHtml+'</div>' : '')+
+          '</div>'+
+          '<div class="outro-actions"><button class="todo-del">'+ICONS.trash+'</button></div>';
+        el.querySelector('.todo-check').addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          o.status = o.status==='concluido' ? 'pendente' : 'concluido';
+          await saveOutros(); renderOutros(); updateBadges();
+        });
+        el.querySelector('.todo-del').addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          outros = outros.filter(x=>x.id!==o.id);
+          await saveOutros(); renderOutros(); updateBadges();
+        });
+        el.addEventListener('click', (e)=>{
+          if(e.target.closest('.todo-check') || e.target.closest('.todo-del') || e.target.closest('a')) return;
+          openOutroModal(o.id);
+        });
+        box.appendChild(el);
       });
     });
   }
 
-  $('#btnAddTodo').addEventListener('click', async ()=>{
-    const input = $('#todoInput');
-    const text = input.value.trim();
-    if(!text){ toast(ICONS.alert + ' Descreva a tarefa'); return; }
-    todos.push({ id: uid(), text, done:false });
-    input.value = '';
-    await saveTodos();
-    renderTodos();
+  function openOutroModal(id){
+    editingOutroId = id;
+    refreshFilterOptions();
+    if(id){
+      const o = outros.find(x=>x.id===id);
+      $('#outroModalTitle').textContent = 'Editar tarefa';
+      $('#outroTarefa').value = o.tarefa || '';
+      $('#outroResponsavel').value = o.responsavel || '';
+      $('#outroLink').value = o.link || '';
+      $('#outroStatus').value = o.status || 'pendente';
+      $('#btnDeleteOutro').style.display = 'inline-flex';
+    } else {
+      $('#outroModalTitle').textContent = 'Nova tarefa';
+      $('#outroTarefa').value = '';
+      $('#outroResponsavel').value = currentUser ? currentUser.nome : '';
+      $('#outroLink').value = '';
+      $('#outroStatus').value = 'pendente';
+      $('#btnDeleteOutro').style.display = 'none';
+    }
+    $('#overlayOutro').classList.add('show');
+  }
+  function closeOutroModal(){ $('#overlayOutro').classList.remove('show'); }
+
+  $('#btnNewOutro').addEventListener('click', ()=> openOutroModal(null));
+  $('#filterOutrosResp').addEventListener('change', (e)=>{ filterOutrosResp = e.target.value; renderOutros(); });
+
+  $('#btnSaveOutro').addEventListener('click', async ()=>{
+    const tarefa = $('#outroTarefa').value.trim();
+    if(!tarefa){ toast(ICONS.alert + ' Descreva a tarefa'); return; }
+    const data = {
+      tarefa,
+      responsavel: $('#outroResponsavel').value,
+      link: $('#outroLink').value.trim(),
+      status: $('#outroStatus').value
+    };
+    if(editingOutroId){
+      Object.assign(outros.find(o=>o.id===editingOutroId), data);
+    } else {
+      outros.push({ id: uid(), ...data });
+    }
+    await saveOutros(); renderOutros(); updateBadges(); closeOutroModal();
+  });
+
+  $('#btnDeleteOutro').addEventListener('click', async ()=>{
+    outros = outros.filter(o=>o.id!==editingOutroId);
+    await saveOutros(); renderOutros(); updateBadges(); closeOutroModal();
+  });
+
+  // ---------- BANCO DE PROFS ----------
+  function renderProfBank(){
+    const grid = $('#profbankGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    if(professores.length===0){
+      grid.innerHTML = '<div class="dash-empty">Nenhum prof cadastrado. Clique em "Novo prof" pra começar.</div>';
+      return;
+    }
+    professores.slice().sort((a,b)=> a.nome.localeCompare(b.nome)).forEach(p=>{
+      const pend = cards.filter(c=> c.prof===p.nome && c.status==='a-gravar').length;
+      const total = cards.filter(c=> c.prof===p.nome).length;
+      const el = document.createElement('div');
+      el.className = 'profbank-card';
+      const ini = (p.nome||'?').trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const link = (url, label)=> url ? '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+label+'</a>' : '';
+      el.innerHTML =
+        '<div class="profbank-avatar">'+escapeHtml(ini)+'</div>'+
+        '<div class="profbank-nome">'+escapeHtml(p.nome)+'</div>'+
+        (p.caracteristicas ? '<div class="profbank-carac">'+escapeHtml(p.caracteristicas)+'</div>' : '')+
+        '<div class="profbank-count'+(pend===0?' zero':'')+'">'+pend+'</div>'+
+        '<div class="profbank-count-label">a gravar de '+total+'</div>'+
+        '<div class="profbank-links">'+link(p.arteCamisa,'Camisa')+link(p.arquivos,'Arquivos')+'</div>';
+      el.addEventListener('click', ()=> openProfessorModal(p.id));
+      grid.appendChild(el);
+    });
+  }
+
+  function openProfessorModal(id){
+    editingProfessorId = id;
+    const box = $('#professorGravacoes');
+    if(id){
+      const p = professores.find(x=>x.id===id);
+      $('#professorModalTitle').textContent = 'Editar prof';
+      $('#professorNome').value = p.nome || '';
+      $('#professorCaracteristicas').value = p.caracteristicas || '';
+      $('#professorArte').value = p.arteCamisa || '';
+      $('#professorArquivos').value = p.arquivos || '';
+      $('#btnDeleteProfessor').style.display = 'inline-flex';
+
+      const items = cards.filter(c=> c.prof===p.nome);
+      if(items.length===0){
+        box.innerHTML = '<div class="prof-grav-box"><h4>Gravações</h4><div style="font-size:12px;color:var(--ink-faint)">Nada pra gravar por enquanto.</div></div>';
+      } else {
+        box.innerHTML = '<div class="prof-grav-box"><h4>Gravações ('+items.filter(c=>c.status==='a-gravar').length+' a gravar)</h4>'+
+          items.map(c=>
+            '<div class="prof-grav-row">'+
+              (c.status==='concluido' ? ICONS.check : ICONS.film)+
+              '<span style="'+(c.status==='concluido'?'text-decoration:line-through;opacity:.6':'')+'">'+escapeHtml(c.tema)+'</span>'+
+              '<span class="pg-etapa" style="background:'+(STATUS_COLORS[c.etapa||'producao'])+'">'+STATUS_LABELS[c.etapa||'producao']+'</span>'+
+            '</div>').join('')+'</div>';
+      }
+    } else {
+      $('#professorModalTitle').textContent = 'Novo prof';
+      $('#professorNome').value = '';
+      $('#professorCaracteristicas').value = '';
+      $('#professorArte').value = '';
+      $('#professorArquivos').value = '';
+      $('#btnDeleteProfessor').style.display = 'none';
+      box.innerHTML = '';
+    }
+    $('#overlayProfessor').classList.add('show');
+  }
+  function closeProfessorModal(){ $('#overlayProfessor').classList.remove('show'); }
+
+  $('#btnNewProfessor').addEventListener('click', ()=> openProfessorModal(null));
+
+  $('#btnSaveProfessor').addEventListener('click', async ()=>{
+    const nome = $('#professorNome').value.trim();
+    if(!nome){ toast(ICONS.alert + ' Escreva o nome do prof'); return; }
+    const dup = professores.find(p=> p.nome===nome && p.id!==editingProfessorId);
+    if(dup){ toast(ICONS.alert + ' Já existe um prof com esse nome'); return; }
+    const data = {
+      nome,
+      caracteristicas: $('#professorCaracteristicas').value,
+      arteCamisa: $('#professorArte').value.trim(),
+      arquivos: $('#professorArquivos').value.trim()
+    };
+    if(editingProfessorId){
+      const antigo = professores.find(p=>p.id===editingProfessorId);
+      const nomeAntigo = antigo.nome;
+      Object.assign(antigo, data);
+      if(nomeAntigo !== nome){
+        cards.forEach(c=>{ if(c.prof===nomeAntigo) c.prof = nome; });
+        studioEvents.forEach(e=>{ if(e.professor===nomeAntigo) e.professor = nome; });
+        posts.forEach(p=>{ if(p.professor===nomeAntigo) p.professor = nome; });
+        await saveCards(); await saveStudioEvents(); await savePosts();
+        renderBoard(); renderProfs(); renderStudio(); renderCalendar(); renderKanban();
+      }
+    } else {
+      professores.push({ id: uid(), ...data });
+    }
+    await saveProfessores();
+    renderProfBank();
     updateBadges();
+    closeProfessorModal();
   });
-  $('#todoInput').addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter') $('#btnAddTodo').click();
+
+  $('#btnDeleteProfessor').addEventListener('click', async ()=>{
+    professores = professores.filter(p=>p.id!==editingProfessorId);
+    await saveProfessores();
+    renderProfBank();
+    updateBadges();
+    closeProfessorModal();
   });
+
+  // ---------- MINHAS RESPONSABILIDADES ----------
+  function minhasPendentes(nome){
+    if(!nome) return [];
+    return [].concat(
+      posts.filter(p=> p.responsavel===nome && p.status!=='pronto'),
+      cards.filter(c=> c.prof===nome && c.status==='a-gravar'),
+      todos.filter(t=> t.responsavel===nome && !t.done),
+      outros.filter(o=> o.responsavel===nome && o.status!=='concluido')
+    );
+  }
+
+  function renderMinhas(){
+    const box = $('#minhasContent');
+    if(!box) return;
+    const nome = minhasPessoa || (currentUser ? currentUser.nome : '');
+    const sub = $('#minhasPrintSubtitle');
+    if(sub) sub.textContent = (nome || '—') + ' · ' + new Date().toLocaleDateString('pt-BR');
+    const st = $('#minhasSubtitle');
+    if(st) st.textContent = nome ? ('Tudo que está no nome de ' + nome + ', em um lugar só.') : 'Selecione uma pessoa.';
+
+    if(!nome){ box.innerHTML = '<div class="dash-empty">Ninguém cadastrado ainda.</div>'; return; }
+
+    const grupos = [
+      { titulo:'Posts (produção)', icon:ICONS.calendar,
+        itens: posts.filter(p=>p.responsavel===nome).map(p=>({
+          id:p.id, tipo:'post', title:p.tema,
+          meta:(p.date?formatDatePt(p.date)+' · ':'')+p.formato+' · '+STATUS_LABELS[p.status||'producao'],
+          done:(p.status==='pronto')
+        })) },
+      { titulo:'Gravações', icon:ICONS.film,
+        itens: cards.filter(c=>c.prof===nome).map(c=>({
+          id:c.id, tipo:'card', title:c.tema,
+          meta:(c.dataPostagem?formatDatePt(c.dataPostagem)+' · ':'')+(c.formato||'')+(c.local?' · '+c.local:''),
+          done:(c.status==='concluido')
+        })) },
+      { titulo:'Tarefas (To-Do)', icon:ICONS.listChecks,
+        itens: todos.filter(t=>t.responsavel===nome).map(t=>({
+          id:t.id, tipo:'todo', title:t.text, meta:'', done:!!t.done
+        })) },
+      { titulo:'Portão de Prova / Outros', icon:ICONS.checkSquare,
+        itens: outros.filter(o=>o.responsavel===nome).map(o=>({
+          id:o.id, tipo:'outro', title:o.tarefa, meta:o.link||'', done:(o.status==='concluido')
+        })) },
+      { titulo:'Acontecimentos', icon:ICONS.calendar,
+        itens: eventos.filter(e=>e.responsavel===nome).map(e=>({
+          id:e.id, tipo:'evento', title:e.descricao, meta:formatDatePt(e.date), done:false, noCheck:true
+        })) }
+    ].filter(g=> g.itens.length > 0);
+
+    if(grupos.length===0){
+      box.innerHTML = '<div class="dash-empty">Nada no nome de ' + escapeHtml(nome) + ' por enquanto.</div>';
+      return;
+    }
+
+    box.innerHTML = '';
+    grupos.forEach(g=>{
+      const wrap = document.createElement('div');
+      wrap.className = 'minhas-group';
+      const pend = g.itens.filter(i=>!i.done).length;
+      wrap.innerHTML = '<div class="minhas-group-head">'+g.icon+g.titulo+
+        '<span class="col-count">'+pend+' pendente'+(pend===1?'':'s')+'</span></div>';
+      const list = document.createElement('div');
+      list.className = 'minhas-list';
+      g.itens.forEach(i=>{
+        const row = document.createElement('div');
+        row.className = 'minha-item' + (i.done ? ' done' : '');
+        row.innerHTML =
+          (i.noCheck ? '<div style="width:22px"></div>'
+                     : '<div class="todo-check'+(i.done?' checked':'')+'">'+(i.done?ICONS.check:'')+'</div>')+
+          '<div class="minha-body"><div class="minha-title">'+escapeHtml(i.title||'')+'</div>'+
+          (i.meta ? '<div class="minha-meta">'+escapeHtml(i.meta)+'</div>' : '')+'</div>';
+        const chk = row.querySelector('.todo-check');
+        if(chk) chk.addEventListener('click', ()=> toggleMinha(i));
+        list.appendChild(row);
+      });
+      wrap.appendChild(list);
+      box.appendChild(wrap);
+    });
+  }
+
+  async function toggleMinha(i){
+    if(i.tipo==='post'){
+      const p = posts.find(x=>x.id===i.id);
+      p.status = (p.status==='pronto') ? 'producao' : 'pronto';
+      await savePosts(); renderCalendar(); renderKanban();
+    } else if(i.tipo==='card'){
+      const c = cards.find(x=>x.id===i.id);
+      c.status = (c.status==='concluido') ? 'a-gravar' : 'concluido';
+      await saveCards(); renderBoard(); renderProfs();
+    } else if(i.tipo==='todo'){
+      const t = todos.find(x=>x.id===i.id);
+      t.done = !t.done;
+      await saveTodos(); renderTodos();
+    } else if(i.tipo==='outro'){
+      const o = outros.find(x=>x.id===i.id);
+      o.status = (o.status==='concluido') ? 'pendente' : 'concluido';
+      await saveOutros(); renderOutros();
+    }
+    renderMinhas();
+    updateBadges();
+  }
+
+  $('#filterMinhasPessoa').addEventListener('change', (e)=>{ minhasPessoa = e.target.value; renderMinhas(); });
+
+  // ---------- EXPORTAR PDF ----------
+  function exportView(viewId){
+    const view = $(viewId);
+    view.classList.add('printing');
+    setTimeout(()=>{
+      window.print();
+      setTimeout(()=> view.classList.remove('printing'), 400);
+    }, 80);
+  }
+  $('#btnExportOutros').addEventListener('click', ()=> exportView('#view-outros'));
+  $('#btnExportMinhas').addEventListener('click', ()=> exportView('#view-minhas'));
 
   // ---------- ACONTECIMENTOS ----------
   function renderEvents(){
@@ -2145,7 +2867,9 @@
       el.className = 'event-item' + (ev.date < todayStr ? ' past' : '');
       el.innerHTML =
         '<div class="event-date"><div class="ed-day">'+d+'</div><div class="ed-month">'+MONTHS[parseInt(m)-1].slice(0,3)+'</div></div>'+
-        '<div class="event-body"><div class="event-desc">'+escapeHtml(ev.descricao)+'</div></div>'+
+        '<div class="event-body"><div class="event-desc">'+escapeHtml(ev.descricao)+'</div>'+
+          (ev.responsavel ? '<div class="minha-meta">'+ICONS.user+' '+escapeHtml(ev.responsavel)+'</div>' : '')+
+        '</div>'+
         '<button class="event-del" data-id="'+ev.id+'">'+ICONS.trash+'</button>';
       el.addEventListener('click', (e)=>{
         if(e.target.closest('.event-del')) return;
@@ -2170,11 +2894,15 @@
       $('#eventoModalTitle').textContent = 'Editar acontecimento';
       $('#eventoData').value = ev.date;
       $('#eventoDescricao').value = ev.descricao;
+      refreshFilterOptions();
+      $('#eventoResponsavel').value = ev.responsavel || '';
       $('#btnDeleteEvento').style.display='inline-flex';
     } else {
       $('#eventoModalTitle').textContent = 'Novo acontecimento';
       $('#eventoData').value = fmtDateFromObj(new Date());
       $('#eventoDescricao').value = '';
+      refreshFilterOptions();
+      $('#eventoResponsavel').value = currentUser ? currentUser.nome : '';
       $('#btnDeleteEvento').style.display='none';
     }
     overlay.classList.add('show');
@@ -2190,9 +2918,9 @@
     if(!descricao){ toast(ICONS.alert + ' Descreva o que vai acontecer'); return; }
     if(editingEventoId){
       const ev = eventos.find(x=>x.id===editingEventoId);
-      ev.date = date; ev.descricao = descricao;
+      ev.date = date; ev.descricao = descricao; ev.responsavel = $('#eventoResponsavel').value;
     } else {
-      eventos.push({ id: uid(), date, descricao });
+      eventos.push({ id: uid(), date, descricao, responsavel: $('#eventoResponsavel').value });
     }
     await saveEventos();
     renderEvents();
@@ -2474,7 +3202,7 @@
     const isViewer = currentUser.permissao === 'Visualizador';
     $('#navTeam').classList.toggle('perm-hidden', !isAdmin);
     $('#btnNewPerson').classList.toggle('perm-hidden', !isAdmin);
-    ['#btnTodayCal','#btnNewCard','#btnNewStudio','#btnAddTodo','#btnNewProfCard','#btnNewEvento'].forEach(sel=>{
+    ['#btnTodayCal','#btnNewCard','#btnNewStudio','#btnAddTodo','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor'].forEach(sel=>{
       const el = $(sel);
       if(el) el.classList.toggle('perm-hidden', isViewer);
     });
@@ -2482,6 +3210,7 @@
 
   // ---------- LOGIN / SESSÃO ----------
   function updateUserChip(){
+    if(currentUser) minhasPessoa = currentUser.nome;
     if(!currentUser){ $('#userChip').style.display='none'; return; }
     $('#userChip').style.display='flex';
     const initials = (currentUser.nome||'?').trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
