@@ -697,11 +697,6 @@
         Cronograma de Posts
         <span class="nav-badge" id="badge-posts">0</span>
       </div>
-      <div class="nav-item" data-view="board">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
-        Gravações
-        <span class="nav-badge" id="badge-cards">0</span>
-      </div>
       <div class="nav-item" data-view="profs">
         <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 2h6v3H9z"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="16" y2="15"></line><line x1="8" y1="19" x2="12" y2="19"></line></svg>
         Gravações por Prof
@@ -850,33 +845,6 @@
           <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
         </div>
         <div class="cal-grid" id="calGrid"></div>
-      </div>
-    </section>
-
-    <!-- VIEW: BOARD -->
-    <section class="view" id="view-board">
-      <div class="topbar">
-        <div class="title-block">
-          <h1>To-Do de Gravações</h1>
-          <p>Cards no estilo Trello — abra para anexar copy, referência e nome do prof.</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:14px;">
-          <div class="filter-bar">
-            <select class="filter-select" id="filterBoardProf"><option value="">Todos os profs</option></select>
-          </div>
-          <button class="btn btn-primary" id="btnNewCard"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Novo Card</button>
-        </div>
-      </div>
-
-      <div class="board" style="grid-template-columns:repeat(2,1fr);">
-        <div class="col" data-status="a-gravar">
-          <div class="col-head"><span class="col-dot" style="background:var(--emerald)"></span><span class="col-title">A Gravar</span><span class="col-count">0</span></div>
-          <div class="col-body" data-col="a-gravar"></div>
-        </div>
-        <div class="col" data-status="concluido">
-          <div class="col-head"><span class="col-dot" style="background:var(--violet)"></span><span class="col-title">Concluído</span><span class="col-count">0</span></div>
-          <div class="col-body" data-col="concluido"></div>
-        </div>
       </div>
     </section>
 
@@ -1763,7 +1731,6 @@
 
   function updateBadges(pulseCards=false){
     $('#badge-posts').textContent = posts.length;
-    $('#badge-cards').textContent = cards.length;
     $('#badge-studio').textContent = studioEvents.length;
     $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length + checklistExtra.filter(c=>!c.done).length;
     $('#badge-kanban').textContent = posts.filter(p=>p.status!=='pronto').length;
@@ -1776,7 +1743,7 @@
     $('#badge-roteiros').textContent = roteiros.length;
     $('#badge-minhas').textContent = minhasPendentes(currentUser ? currentUser.nome : '').length;
     if(pulseCards){
-      const b = $('#badge-cards');
+      const b = $('#badge-checklist');
       b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     }
     refreshFilterOptions();
@@ -1811,7 +1778,6 @@
         values.map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');
       if(values.includes(current)) el.value = current;
     };
-    fillSelect('#filterBoardProf', profNames, 'Todos os profs', filterBoardProf);
     fillSelect('#filterStudioProf', profNames, 'Todos os profs', filterStudioProf);
     fillSelect('#filterProfsProf', profNames, 'Todos os profs', filterProfsProf);
     fillSelect('#filterRoteirosProf', profNames, 'Todos os profs', filterRoteirosProf);
@@ -1846,7 +1812,6 @@
     if(dl) dl.innerHTML = allNames.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
   }
 
-  $('#filterBoardProf').addEventListener('change', (e)=>{ filterBoardProf = e.target.value; renderBoard(); });
   $('#filterStudioProf').addEventListener('change', (e)=>{ filterStudioProf = e.target.value; renderStudio(); });
   $('#filterCalResp').addEventListener('change', (e)=>{ filterCalResp = e.target.value; renderCalendar(); });
   $('#filterKanbanResp').addEventListener('change', (e)=>{ filterKanbanResp = e.target.value; renderKanban(); });
@@ -2118,6 +2083,7 @@
     const cols = ['a-gravar','concluido'];
     cols.forEach(status=>{
       const body = $('.col-body[data-col="'+status+'"]');
+      if(!body) return;
       const count = body.closest('.col').querySelector('.col-count');
       const list = cards.filter(c=> c.status===status && (!filterBoardProf || c.prof===filterBoardProf));
       count.textContent = list.length;
@@ -2407,7 +2373,6 @@
   }
   function closeCardModal(){ $('#overlayCard').classList.remove('show'); }
 
-  $('#btnNewCard').addEventListener('click', ()=> openCardModal(null));
 
   $('#btnSaveCard').addEventListener('click', async ()=>{
     const tema = $('#cardTema').value.trim();
@@ -3438,7 +3403,7 @@
     const isViewer = currentUser.permissao === 'Visualizador';
     $('#navTeam').classList.toggle('perm-hidden', !isAdmin);
     $('#btnNewPerson').classList.toggle('perm-hidden', !isAdmin);
-    ['#btnTodayCal','#btnNewCard','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro'].forEach(sel=>{
+    ['#btnTodayCal','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro'].forEach(sel=>{
       const el = $(sel);
       if(el) el.classList.toggle('perm-hidden', isViewer);
     });
