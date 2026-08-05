@@ -396,6 +396,13 @@
     min-width:0; max-width:100%; overflow:hidden;
   }
   .chip.dragging{ opacity:0.4; }
+  .chip.evento{
+    background:rgba(255,255,255,0.06); color:var(--ink);
+    border:1px solid rgba(255,255,255,0.18); border-left:3px solid var(--amber);
+    cursor:pointer; box-shadow:none;
+  }
+  .chip.evento .ev-ic{ flex-shrink:0; display:inline-flex; color:var(--amber); }
+  .chip.evento .ev-ic svg{ width:11px; height:11px; }
   .chip > span:first-child{ flex-shrink:0; }
   .chip .t{ flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .chip-add-hint{ font-size:11px; color:var(--ink-faint); opacity:0; transition:opacity .15s; margin-top:auto; display:flex; align-items:center; gap:4px;}
@@ -1220,6 +1227,13 @@
         <div class="opt-pill" data-cst="design"><span class="d" style="background:var(--sky)"></span>Design</div>
       </div>
     </div>
+    <div class="field" id="reelsRow" style="display:none;">
+      <label>Tipo de Reels</label>
+      <div class="format-picker" id="reelsPicker">
+        <div class="opt-pill" data-rst="nativo"><span class="d" style="background:#ec4899"></span>Nativo</div>
+        <div class="opt-pill" data-rst="audiovisual"><span class="d" style="background:#6366f1"></span>Com audiovisual</div>
+      </div>
+    </div>
     <div class="field" id="gravadoRow" style="display:none;">
       <label>Vídeo</label>
       <div class="format-picker" id="gravadoPicker">
@@ -1447,6 +1461,16 @@
       <label>Data</label>
       <input type="date" id="eventoData">
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>Início</label>
+        <input type="time" id="eventoInicio" value="09:00">
+      </div>
+      <div class="field">
+        <label>Fim</label>
+        <input type="time" id="eventoFim" value="10:00">
+      </div>
+    </div>
     <div class="field">
       <label>O que vai acontecer</label>
       <textarea id="eventoDescricao" placeholder="Descreva o que vai rolar nesse dia..."></textarea>
@@ -1606,10 +1630,17 @@
 
   const FMT_COLORS = { 'Feed':'var(--violet)', 'Reels':'var(--pink)', 'Story':'var(--sky)', 'Carrossel':'var(--amber)', 'Vídeo':'var(--emerald)' };
   const FMT_HEX = { 'Feed':'#8b5cf6', 'Reels':'#ec4899', 'Story':'#38bdf8', 'Carrossel':'#f5a623', 'Vídeo':'#34d399' };
+  // cor do chip de Reels conforme o tipo: nativo (rosa) x com audiovisual (índigo)
+  const REELS_COLORS = { nativo:'#ec4899', audiovisual:'#6366f1' };
   // sufixo curto pro formato: carrossel nativo/design, ou status de gravação do vídeo
   function fmtSuffix(p){
     if(p.formato==='Carrossel' && p.carrosselTipo) return p.carrosselTipo==='design' ? 'design' : 'nativo';
-    if(isVideoFmt(p.formato)) return p.gravado ? 'gravado' : 'a gravar';
+    if(isVideoFmt(p.formato)){
+      const parts = [];
+      if(p.formato==='Reels' && p.reelsTipo) parts.push(p.reelsTipo==='audiovisual' ? 'audiovisual' : 'nativo');
+      parts.push(p.gravado ? 'gravado' : 'a gravar');
+      return parts.join(' · ');
+    }
     return '';
   }
   const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -1651,6 +1682,7 @@
   let editingEventoId = null;
   let selectedFmt = 'Feed';
   let selectedCarrossel = '';   // '', 'nativo', 'design'
+  let selectedReels = '';       // '', 'nativo', 'audiovisual'
   let selectedGravado = false;  // true = já gravado, false = pra gravar
   const isVideoFmt = f => ['Vídeo','Reels','Story'].includes(f);
   let selectedTipo = 'Gravação';
@@ -1741,8 +1773,8 @@
 
   const MAP = {
     posts: {
-      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null, texto:p.texto||null, arte:p.arte||null, referencia:p.referencia||null, professor:p.professor||null, carrossel_tipo:p.carrosselTipo||null, gravado:!!p.gravado }),
-      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'', carrosselTipo:r.carrossel_tipo||'', gravado:!!r.gravado })
+      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null, texto:p.texto||null, arte:p.arte||null, referencia:p.referencia||null, professor:p.professor||null, carrossel_tipo:p.carrosselTipo||null, reels_tipo:p.reelsTipo||null, gravado:!!p.gravado }),
+      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'', carrosselTipo:r.carrossel_tipo||'', reelsTipo:r.reels_tipo||'', gravado:!!r.gravado })
     },
     cards: {
       to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null, etapa:c.etapa||'producao' }),
@@ -1753,8 +1785,8 @@
       from: r => ({ id:r.id, date:r.date||'', start:r.start_time||'09:00', end:r.end_time||'10:00', tipo:r.tipo||'Gravação', local:r.local||'Studio 1', tema:r.tema||'', professor:r.professor||'', descricao:r.descricao||'' })
     },
     eventos: {
-      to:   e => ({ id:e.id, date:e.date||null, descricao:e.descricao||null, responsavel:e.responsavel||null }),
-      from: r => ({ id:r.id, date:r.date||'', descricao:r.descricao||'', responsavel:r.responsavel||'' })
+      to:   e => ({ id:e.id, date:e.date||null, descricao:e.descricao||null, responsavel:e.responsavel||null, hora_inicio:e.horaInicio||null, hora_fim:e.horaFim||null }),
+      from: r => ({ id:r.id, date:r.date||'', descricao:r.descricao||'', responsavel:r.responsavel||'', horaInicio:r.hora_inicio||'', horaFim:r.hora_fim||'' })
     },
     professores: {
       to:   p => ({ id:p.id, nome:p.nome||null, caracteristicas:p.caracteristicas||null, arte_camisa:p.arteCamisa||null, arquivos:p.arquivos||null }),
@@ -2017,7 +2049,9 @@
         dayPosts.forEach(p=>{
           const chip = document.createElement('div');
           chip.className='chip';
-          chip.style.background = FMT_COLORS[p.formato] || 'var(--violet)';
+          let chipBg = FMT_COLORS[p.formato] || 'var(--violet)';
+          if(p.formato==='Reels' && p.reelsTipo && REELS_COLORS[p.reelsTipo]) chipBg = REELS_COLORS[p.reelsTipo];
+          chip.style.background = chipBg;
           chip.draggable = true;
           chip.dataset.postId = p.id;
           const suf = fmtSuffix(p);
@@ -2030,6 +2064,20 @@
             e.stopPropagation();
           });
           chip.addEventListener('dragend', ()=> chip.classList.remove('dragging'));
+          cell.appendChild(chip);
+        });
+        // acontecimentos do dia
+        const dayEventos = eventos
+          .filter(ev=> ev.date===dateStr && (!filterCalResp || ev.responsavel===filterCalResp))
+          .sort((a,b)=> (a.horaInicio||'').localeCompare(b.horaInicio||''));
+        dayEventos.forEach(ev=>{
+          const chip = document.createElement('div');
+          chip.className = 'chip evento';
+          const faixa = ev.horaInicio ? (ev.horaInicio + (ev.horaFim ? '–'+ev.horaFim : '')) : '';
+          chip.innerHTML = '<span class="ev-ic">'+ICONS.calendar+'</span>' +
+            (faixa ? '<span>'+faixa+'</span>' : '') +
+            '<span class="t">'+escapeHtml(ev.descricao)+'</span>';
+          chip.addEventListener('click', (e)=>{ e.stopPropagation(); openEventoModal(ev.id); });
           cell.appendChild(chip);
         });
         const hint = document.createElement('div');
@@ -2106,6 +2154,7 @@
       $('#postArte').value = p.arte || '';
       $('#postReferencia').value = p.referencia || '';
       selectCarrossel(p.carrosselTipo || '');
+      selectReels(p.reelsTipo || '');
       selectGravado(!!p.gravado);
       selectFmt(p.formato);
       populateResponsavelSelect(p.responsavel);
@@ -2124,6 +2173,7 @@
       $('#postArte').value = '';
       $('#postReferencia').value = '';
       selectCarrossel('');
+      selectReels('');
       selectGravado(false);
       selectFmt('Feed');
       populateResponsavelSelect('');
@@ -2145,9 +2195,12 @@
     });
     const isCarr = (fmt === 'Carrossel');
     const isVid  = isVideoFmt(fmt);
+    const isReels = (fmt === 'Reels');
     $('#carrosselRow').style.display = isCarr ? 'block' : 'none';
     $('#gravadoRow').style.display   = isVid  ? 'block' : 'none';
+    $('#reelsRow').style.display     = isReels ? 'block' : 'none';
     if(isCarr && !selectedCarrossel) selectCarrossel('nativo');
+    if(isReels && !selectedReels) selectReels('nativo');
     updateVideoHint();
   }
   function updateVideoHint(){
@@ -2165,9 +2218,14 @@
     $$('#gravadoPicker .opt-pill').forEach(p=> p.classList.toggle('sel', (p.dataset.grav==='1') === selectedGravado));
     updateVideoHint();
   }
+  function selectReels(v){
+    selectedReels = v;
+    $$('#reelsPicker .opt-pill').forEach(p=> p.classList.toggle('sel', p.dataset.rst === v));
+  }
   $$('#fmtPicker .fmt-pill').forEach(p=> p.addEventListener('click', ()=> selectFmt(p.dataset.fmt)));
   $$('#carrosselPicker .opt-pill').forEach(p=> p.addEventListener('click', ()=> selectCarrossel(p.dataset.cst)));
   $$('#gravadoPicker .opt-pill').forEach(p=> p.addEventListener('click', ()=> selectGravado(p.dataset.grav==='1')));
+  $$('#reelsPicker .opt-pill').forEach(p=> p.addEventListener('click', ()=> selectReels(p.dataset.rst)));
 
   $('#btnSavePost').addEventListener('click', async ()=>{
     const horario = $('#postHorario').value || '09:00';
@@ -2182,12 +2240,14 @@
       post.texto = $('#postTexto').value; post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
       post.professor = $('#postProfessor').value;
       post.carrosselTipo = (selectedFmt==='Carrossel') ? selectedCarrossel : '';
+      post.reelsTipo = (selectedFmt==='Reels') ? selectedReels : '';
       post.gravado = isVideoFmt(selectedFmt) ? selectedGravado : false;
     } else {
       post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status:'producao',
                texto: $('#postTexto').value, arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
                professor: $('#postProfessor').value,
                carrosselTipo: (selectedFmt==='Carrossel') ? selectedCarrossel : '',
+               reelsTipo: (selectedFmt==='Reels') ? selectedReels : '',
                gravado: isVideoFmt(selectedFmt) ? selectedGravado : false };
       posts.push(post);
     }
@@ -3155,7 +3215,7 @@
         })) },
       { titulo:'Acontecimentos', icon:ICONS.calendar,
         itens: eventos.filter(e=>e.responsavel===nome).map(e=>({
-          id:e.id, tipo:'evento', title:e.descricao, meta:formatDatePt(e.date), done:false, noCheck:true
+          id:e.id, tipo:'evento', title:e.descricao, meta:formatDatePt(e.date)+(e.horaInicio ? ' · '+e.horaInicio+(e.horaFim ? '–'+e.horaFim : '') : ''), done:false, noCheck:true
         })) }
     ].filter(g=> g.itens.length > 0);
 
@@ -3240,6 +3300,7 @@
       el.innerHTML =
         '<div class="event-date"><div class="ed-day">'+d+'</div><div class="ed-month">'+MONTHS[parseInt(m)-1].slice(0,3)+'</div></div>'+
         '<div class="event-body"><div class="event-desc">'+escapeHtml(ev.descricao)+'</div>'+
+          (ev.horaInicio ? '<div class="minha-meta">'+ICONS.calendar+' '+ev.horaInicio+(ev.horaFim ? ' – '+ev.horaFim : '')+'</div>' : '')+
           (ev.responsavel ? '<div class="minha-meta">'+ICONS.user+' '+escapeHtml(ev.responsavel)+'</div>' : '')+
         '</div>'+
         '<button class="event-del" data-id="'+ev.id+'">'+ICONS.trash+'</button>';
@@ -3252,6 +3313,7 @@
         eventos = eventos.filter(x=>x.id!==ev.id);
         await saveEventos();
         renderEvents();
+        renderCalendar();
         updateBadges();
       });
       list.appendChild(el);
@@ -3265,6 +3327,8 @@
       const ev = eventos.find(x=>x.id===id);
       $('#eventoModalTitle').textContent = 'Editar acontecimento';
       $('#eventoData').value = ev.date;
+      $('#eventoInicio').value = ev.horaInicio || '09:00';
+      $('#eventoFim').value = ev.horaFim || '10:00';
       $('#eventoDescricao').value = ev.descricao;
       refreshFilterOptions();
       $('#eventoResponsavel').value = ev.responsavel || '';
@@ -3272,6 +3336,8 @@
     } else {
       $('#eventoModalTitle').textContent = 'Novo acontecimento';
       $('#eventoData').value = fmtDateFromObj(new Date());
+      $('#eventoInicio').value = '09:00';
+      $('#eventoFim').value = '10:00';
       $('#eventoDescricao').value = '';
       refreshFilterOptions();
       $('#eventoResponsavel').value = currentUser ? currentUser.nome : '';
@@ -3286,16 +3352,21 @@
   $('#btnSaveEvento').addEventListener('click', async ()=>{
     const date = $('#eventoData').value;
     const descricao = $('#eventoDescricao').value.trim();
+    const horaInicio = $('#eventoInicio').value || '';
+    const horaFim = $('#eventoFim').value || '';
     if(!date){ toast(ICONS.alert + ' Escolha uma data'); return; }
     if(!descricao){ toast(ICONS.alert + ' Descreva o que vai acontecer'); return; }
+    if(horaInicio && horaFim && horaFim < horaInicio){ toast(ICONS.alert + ' O fim não pode ser antes do início'); return; }
     if(editingEventoId){
       const ev = eventos.find(x=>x.id===editingEventoId);
       ev.date = date; ev.descricao = descricao; ev.responsavel = $('#eventoResponsavel').value;
+      ev.horaInicio = horaInicio; ev.horaFim = horaFim;
     } else {
-      eventos.push({ id: uid(), date, descricao, responsavel: $('#eventoResponsavel').value });
+      eventos.push({ id: uid(), date, descricao, responsavel: $('#eventoResponsavel').value, horaInicio, horaFim });
     }
     await saveEventos();
     renderEvents();
+    renderCalendar();
     updateBadges();
     closeEventoModal();
   });
@@ -3304,6 +3375,7 @@
     eventos = eventos.filter(x=>x.id!==editingEventoId);
     await saveEventos();
     renderEvents();
+    renderCalendar();
     updateBadges();
     closeEventoModal();
   });
