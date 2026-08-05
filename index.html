@@ -545,13 +545,17 @@
     height:52px; cursor:pointer; transition:background .12s;
   }
   .studio-cell:hover{ background:rgba(255,255,255,0.05); }
+  .studio-daycol{ position:relative; pointer-events:none; }
   .studio-event{
-    position:relative; margin:2px 4px; border-radius:9px; padding:6px 9px;
-    font-size:11px; color:#fff; overflow:hidden; cursor:pointer;
-    box-shadow:0 6px 16px -8px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.18);
-    transition:transform .12s, box-shadow .12s;
+    position:absolute; box-sizing:border-box; border-radius:9px; padding:5px 8px;
+    font-size:11px; color:#fff; overflow:hidden; cursor:grab; pointer-events:auto;
+    box-shadow:0 6px 16px -8px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.22);
+    transition:box-shadow .12s, filter .12s;
   }
-  .studio-event:hover{ transform:translateY(-1px); box-shadow:0 10px 20px -8px rgba(0,0,0,0.7); }
+  .studio-event:hover{ box-shadow:0 10px 20px -8px rgba(0,0,0,0.7); filter:brightness(1.06); }
+  .studio-event.dragging{ opacity:0.45; }
+  .studio-grid.drag-active .studio-event{ pointer-events:none; }
+  .studio-cell.dragover{ background:rgba(139,92,246,0.22); box-shadow:inset 0 0 0 1px rgba(139,92,246,0.5); }
   .studio-event .se-tipo{ font-weight:700; font-size:10.5px; letter-spacing:0.2px; }
   .studio-event .se-local{ font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .studio-event .se-time{ font-size:9.5px; opacity:0.85; }
@@ -1361,7 +1365,7 @@
     </div>
     <div class="field">
       <label>Dia</label>
-      <input type="text" id="studioDia" disabled>
+      <input type="date" id="studioData">
     </div>
     <div class="row2">
       <div class="field">
@@ -1648,6 +1652,13 @@
 
   const TIPO_COLORS = { 'Gravação':'#34d399', 'Live':'#ec4899', 'Aula':'#38bdf8' };
   const LOCAL_COLORS = { 'Studio 1':'#a400ff', 'Studio 2':'#38bdf8', 'Em Aberto':'#f5a623' };
+  const STUDIO_PALETTE = ['#a400ff','#38bdf8','#f5a623','#34d399','#ec4899','#6366f1','#f97316','#14b8a6'];
+  function studioColor(local){
+    if(local && LOCAL_COLORS[local]) return LOCAL_COLORS[local];
+    if(!local) return LOCAL_COLORS['Studio 1'];
+    let h = 0; for(let i=0;i<local.length;i++) h = (h*31 + local.charCodeAt(i)) >>> 0;
+    return STUDIO_PALETTE[h % STUDIO_PALETTE.length];
+  }
   const WEEKDAY_NAMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
   const STATUS_ORDER = ['producao','edicao','revisao','pronto'];
@@ -1690,6 +1701,7 @@
   let selectedPermissao = 'Editor';
   let draggedCardId = null;
   let draggedPostId = null;
+  let draggedStudioId = null;
   let selectedCardFmt = 'Feed';
   let selectedCardLocal = '';
   let filterBoardProf = '';
@@ -2427,29 +2439,95 @@
         cell.className = 'studio-cell';
         cell.style.gridColumn = (dayIdx+2);
         cell.style.gridRow = (h+2);
-        cell.addEventListener('click', ()=> openStudioModal(fmtDateFromObj(d), hourLabel(h), null));
+        const cellDate = fmtDateFromObj(d), cellHour = h;
+        cell.addEventListener('click', ()=> openStudioModal(cellDate, hourLabel(cellHour), null));
+        cell.addEventListener('dragover', (e)=>{ if(draggedStudioId){ e.preventDefault(); cell.classList.add('dragover'); } });
+        cell.addEventListener('dragleave', ()=> cell.classList.remove('dragover'));
+        cell.addEventListener('drop', async (e)=>{
+          e.preventDefault(); cell.classList.remove('dragover');
+          if(!draggedStudioId) return;
+          const ev = studioEvents.find(x=>x.id===draggedStudioId);
+          if(!ev) return;
+          const dur = Math.max(1, parseInt(ev.end) - parseInt(ev.start));
+          ev.date = cellDate;
+          ev.start = hourLabel(cellHour);
+          ev.end = hourLabel(Math.min(cellHour + dur, 24));
+          draggedStudioId = null;
+          await saveStudioEvents();
+          renderStudio();
+          updateBadges();
+        });
         grid.appendChild(cell);
       });
     }
 
-    // events
-    studioEvents.filter(ev=> !filterStudioProf || ev.professor===filterStudioProf).forEach(ev=>{
-      const dayIdx = weekDates.findIndex(d=> fmtDateFromObj(d) === ev.date);
-      if(dayIdx === -1) return;
-      const startH = parseInt(ev.start.split(':')[0]);
-      const endH = parseInt(ev.end.split(':')[0]);
-      const span = Math.max(1, endH - startH);
-      const el = document.createElement('div');
-      el.className = 'studio-event';
-      el.style.gridColumn = (dayIdx+2);
-      el.style.gridRow = (startH+2) + ' / span ' + span;
-      el.style.background = LOCAL_COLORS[ev.local] || LOCAL_COLORS['Studio 1'];
-      el.innerHTML = '<div class="se-tipo">'+escapeHtml(ev.tema || ev.tipo)+'</div>'+
-        '<div class="se-time">'+ev.start+' – '+ev.end+' · '+escapeHtml(ev.tipo)+'</div>'+
-        (ev.professor ? '<div class="se-local">'+ICONS.user+escapeHtml(ev.professor)+'</div>' : '') +
-        (ev.local ? '<div class="se-local">'+ICONS.mapPin+escapeHtml(ev.local)+'</div>' : '');
-      el.addEventListener('click', (e)=>{ e.stopPropagation(); openStudioModal(ev.date, ev.start, ev.id); });
-      grid.appendChild(el);
+    // eventos — um overlay por dia, com faixas lado a lado p/ horários sobrepostos
+    const HH = 52; // altura de 1 hora (px)
+    weekDates.forEach((d, dayIdx)=>{
+      const col = document.createElement('div');
+      col.className = 'studio-daycol';
+      col.style.gridColumn = (dayIdx+2);
+      col.style.gridRow = '2 / span 24';
+
+      const dstr = fmtDateFromObj(d);
+      const dayEvs = studioEvents
+        .filter(ev=> ev.date===dstr && (!filterStudioProf || ev.professor===filterStudioProf))
+        .map(ev=>({ ev, startH: parseInt(ev.start), endH: Math.max(parseInt(ev.start)+1, parseInt(ev.end)) }))
+        .sort((a,b)=> a.startH - b.startH || a.endH - b.endH);
+
+      // agrupa em clusters de sobreposição e distribui em faixas (colunas)
+      const layout = new Map(); // id -> {lane, lanes}
+      let cluster = [], clusterEnd = -1;
+      const flush = ()=>{
+        if(!cluster.length) return;
+        const lanesEnd = [];
+        cluster.forEach(item=>{
+          let placed = false;
+          for(let i=0;i<lanesEnd.length;i++){
+            if(lanesEnd[i] <= item.startH){ item.lane = i; lanesEnd[i] = item.endH; placed = true; break; }
+          }
+          if(!placed){ item.lane = lanesEnd.length; lanesEnd.push(item.endH); }
+        });
+        cluster.forEach(item=> layout.set(item.ev.id, { lane:item.lane, lanes:lanesEnd.length }));
+        cluster = [];
+      };
+      dayEvs.forEach(item=>{
+        if(cluster.length && item.startH >= clusterEnd){ flush(); clusterEnd = -1; }
+        cluster.push(item);
+        clusterEnd = Math.max(clusterEnd, item.endH);
+      });
+      flush();
+
+      dayEvs.forEach(({ev, startH, endH})=>{
+        const { lane, lanes } = layout.get(ev.id) || { lane:0, lanes:1 };
+        const el = document.createElement('div');
+        el.className = 'studio-event';
+        el.style.top = (startH*HH + 2) + 'px';
+        el.style.height = ((endH-startH)*HH - 4) + 'px';
+        el.style.left = 'calc(' + (lane*100/lanes) + '% + 3px)';
+        el.style.width = 'calc(' + (100/lanes) + '% - 6px)';
+        el.style.background = studioColor(ev.local);
+        el.innerHTML = '<div class="se-tipo">'+escapeHtml(ev.tema || ev.tipo)+'</div>'+
+          '<div class="se-time">'+ev.start+' – '+ev.end+' · '+escapeHtml(ev.tipo)+'</div>'+
+          (ev.professor ? '<div class="se-local">'+ICONS.user+escapeHtml(ev.professor)+'</div>' : '') +
+          (ev.local ? '<div class="se-local">'+ICONS.mapPin+escapeHtml(ev.local)+'</div>' : '');
+        el.draggable = true;
+        el.addEventListener('click', (e)=>{ e.stopPropagation(); openStudioModal(ev.date, ev.start, ev.id); });
+        el.addEventListener('dragstart', (e)=>{
+          draggedStudioId = ev.id;
+          el.classList.add('dragging');
+          grid.classList.add('drag-active');
+          if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+          e.stopPropagation();
+        });
+        el.addEventListener('dragend', ()=>{
+          el.classList.remove('dragging');
+          grid.classList.remove('drag-active');
+        });
+        col.appendChild(el);
+      });
+
+      grid.appendChild(col);
     });
 
     // auto-scroll to business hours on first render
@@ -2491,13 +2569,11 @@
     editingStudioId = eventId;
     editingStudioDate = dateStr;
     const overlay = $('#overlayStudio');
-    const [y,m,d] = dateStr.split('-');
-    const dObj = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
-    $('#studioDia').value = WEEKDAY_NAMES[dObj.getDay()] + ', ' + d + '/' + m;
 
     if(eventId){
       const ev = studioEvents.find(x=>x.id===eventId);
       $('#studioModalTitle').textContent = 'Editar evento';
+      $('#studioData').value = ev.date;
       $('#studioStart').value = ev.start;
       $('#studioEnd').value = ev.end;
       $('#studioTema').value = ev.tema || '';
@@ -2508,6 +2584,7 @@
       $('#btnDeleteStudio').style.display='inline-flex';
     } else {
       $('#studioModalTitle').textContent = 'Novo evento';
+      $('#studioData').value = dateStr;
       $('#studioStart').value = startHour || '09:00';
       const startH = parseInt((startHour||'09:00').split(':')[0]);
       $('#studioEnd').value = hourLabel(Math.min(startH+1, 24));
@@ -2525,6 +2602,8 @@
   $('#btnSaveStudio').addEventListener('click', async ()=>{
     const start = $('#studioStart').value;
     const end = $('#studioEnd').value;
+    const date = $('#studioData').value || editingStudioDate;
+    if(!date){ toast(ICONS.alert + ' Escolha uma data'); return; }
     if(end <= start){ toast(ICONS.alert + ' O horário final precisa ser depois do inicial'); return; }
     const tema = $('#studioTema').value.trim();
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o evento'); return; }
@@ -2533,10 +2612,10 @@
 
     if(editingStudioId){
       const ev = studioEvents.find(x=>x.id===editingStudioId);
-      ev.start = start; ev.end = end; ev.tipo = selectedTipo; ev.local = selectedLocal;
+      ev.date = date; ev.start = start; ev.end = end; ev.tipo = selectedTipo; ev.local = selectedLocal;
       ev.tema = tema; ev.professor = professor; ev.descricao = descricao;
     } else {
-      studioEvents.push({ id: uid(), date: editingStudioDate, start, end, tipo: selectedTipo, local: selectedLocal, tema, professor, descricao });
+      studioEvents.push({ id: uid(), date, start, end, tipo: selectedTipo, local: selectedLocal, tema, professor, descricao });
     }
     await saveStudioEvents();
     renderStudio();
