@@ -27,6 +27,12 @@
   alter table posts    add column if not exists anexos text;
   alter table cards    add column if not exists solic_id text;
   alter table roteiros add column if not exists modo text;
+  alter table professores add column if not exists materias text;
+  alter table professores add column if not exists link_slides text;
+  alter table professores add column if not exists link_dicas text;
+  alter table professores add column if not exists link_questoes text;
+  alter table cards add column if not exists profs text;
+  alter table studio_events add column if not exists professores text;
 
   -- permissoes
   alter table projetos     enable row level security;
@@ -904,6 +910,58 @@
   .check-item.done .ci-text{ text-decoration:line-through; color:var(--ink-faint); }
   .check-sec-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-faint); font-weight:700; }
 
+  /* ---------- MATÉRIAS / CHIPS ---------- */
+  .chip-input-row{ display:flex; gap:8px; }
+  .chip-input-row input{ flex:1; }
+  .chips-box{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .materia-chip{
+    display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600;
+    background:var(--w080); border:1px solid var(--w140); color:var(--ink-dim);
+    padding:5px 10px; border-radius:20px;
+  }
+  .materia-chip button{
+    border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:14px;
+    line-height:1; padding:0; display:flex; align-items:center;
+  }
+  .materia-chip button:hover{ color:var(--danger); }
+  .profbank-materias{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin:8px 0 2px; }
+  .profbank-materias span{
+    font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:20px;
+    background:rgba(164,0,255,0.18); color:#e0c6ff;
+  }
+  [data-theme="light"] .profbank-materias span{ background:rgba(124,58,237,0.13); color:#5b21b6; }
+
+  /* ---------- POSTS DA SEMANA (topo da Produção) ---------- */
+  .semana-wrap{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
+    padding:16px; box-shadow:var(--shadow); margin-bottom:20px;
+  }
+  .semana-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:13px; }
+  .semana-head h3{ margin:0; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px; color:var(--ink-dim); }
+  .semana-head .spacer{ flex:1; }
+  .semana-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(215px,1fr)); gap:13px; align-items:start; }
+  .semana-col{
+    background:var(--w040); border:1px solid var(--w080); border-radius:13px; padding:12px;
+    display:flex; flex-direction:column; gap:9px; min-width:0;
+  }
+  .semana-col.hoje{ border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset; }
+  .semana-col-head{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .semana-dia{ font-size:12.5px; font-weight:700; letter-spacing:.2px; }
+  .semana-data{ font-size:11px; color:var(--ink-faint); }
+  .semana-col-body{ display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto; padding-right:3px; }
+  .semana-item{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; padding:9px 10px;
+    cursor:pointer; display:flex; flex-direction:column; gap:5px; min-width:0; transition:transform .12s;
+  }
+  .semana-item:hover{ transform:translateY(-1px); }
+  .semana-item-top{ display:flex; align-items:center; gap:7px; min-width:0; }
+  .semana-hora{ font-size:10.5px; font-weight:700; color:var(--ink-faint); flex-shrink:0; }
+  .semana-fmt{ font-size:9px; font-weight:700; color:#fff; padding:2px 7px; border-radius:20px; flex-shrink:0; }
+  .semana-tema{ font-size:12px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+  .semana-meta{ font-size:10.5px; color:var(--ink-faint); display:flex; align-items:center; gap:5px; min-width:0; }
+  .semana-meta .st{ font-weight:700; padding:2px 7px; border-radius:20px; color:#fff; flex-shrink:0; }
+  .semana-vazio{ font-size:11.5px; color:var(--ink-faint); text-align:center; padding:14px 4px; }
+
   /* ---------- MODELOS ---------- */
   .modelos-grid{
     display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:16px;
@@ -1664,6 +1722,22 @@
         </div>
       </div>
 
+      <div class="semana-wrap" id="semanaWrap">
+        <div class="semana-head">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Posts da semana <span class="col-count" id="semanaCount">0</span>
+          </h3>
+          <div class="spacer"></div>
+          <div class="month-nav">
+            <button id="prevSemanaProd">‹</button>
+            <div class="month-label" id="semanaProdLabel" style="min-width:190px;"></div>
+            <button id="nextSemanaProd">›</button>
+          </div>
+        </div>
+        <div class="semana-grid" id="semanaGrid"></div>
+      </div>
+
       <div class="kanban-board">
         <div class="kanban-col" data-status="producao">
           <div class="kanban-col-head"><span class="col-dot" style="background:var(--violet)"></span><span class="kanban-col-title">Produção</span><span class="kanban-col-count">0</span></div>
@@ -1836,13 +1910,13 @@
     </div>
     <div class="row2">
       <div class="field">
-        <label>Quem (prof)</label>
-        <select class="status-select" id="cardProf"></select>
-      </div>
-      <div class="field">
         <label>Data de postagem</label>
         <input type="date" id="cardDataPostagem">
       </div>
+    </div>
+    <div class="field">
+      <label>Quem grava (dá pra marcar mais de um)</label>
+      <div class="format-picker" id="cardProfPicker"></div>
     </div>
     <div class="field">
       <label>Formato</label>
@@ -1917,8 +1991,8 @@
       <input type="text" id="studioTema" placeholder="Ex: Aula 3 - Caixa Rápido">
     </div>
     <div class="field">
-      <label>Professor</label>
-      <select class="status-select" id="studioProf"></select>
+      <label>Professores (dá pra marcar mais de um)</label>
+      <div class="format-picker" id="studioProfPicker"></div>
     </div>
     <div class="field">
       <label>Tipo</label>
@@ -1988,6 +2062,7 @@
 </div>
 
 <datalist id="profNamesList"></datalist>
+<datalist id="materiasList"></datalist>
 
 <!-- MODAL: ACONTECIMENTO -->
 <div class="overlay" id="overlayEvento">
@@ -2087,8 +2162,24 @@
       <textarea id="professorCaracteristicas" placeholder="Estilo, matérias que domina, tom de fala, particularidades..."></textarea>
     </div>
     <div class="field">
-      <label>Arte da camisa (link)</label>
-      <input type="text" id="professorArte" placeholder="Link da arte no Drive, Canva...">
+      <label>Matérias que ele(a) dá</label>
+      <div class="chip-input-row">
+        <input type="text" id="professorMateriaInput" placeholder="Digite a matéria e aperte Enter" list="materiasList">
+        <button class="btn btn-ghost" id="btnAddMateria" style="white-space:nowrap;">Adicionar</button>
+      </div>
+      <div class="chips-box" id="professorMaterias"></div>
+    </div>
+    <div class="field">
+      <label>Link dos slides</label>
+      <input type="text" id="professorSlides" placeholder="Link da pasta ou apresentação">
+    </div>
+    <div class="field">
+      <label>Link das dicas</label>
+      <input type="text" id="professorDicas" placeholder="Link do material de dicas">
+    </div>
+    <div class="field">
+      <label>Link das questões</label>
+      <input type="text" id="professorQuestoes" placeholder="Link do banco de questões">
     </div>
     <div class="field">
       <label>Arquivos (link)</label>
@@ -2434,6 +2525,7 @@
   let selectedModeloFmt = 'Feed';
   let modeloAnexos = [];
   let filterModelosFmt = '';
+  let semanaProdStart = null; // definida no boot
   let editingRoteiroId = null;
   let editingProjetoId = null;
   let editingSolicId = null;
@@ -2561,6 +2653,26 @@
       : '?id=not.is.null';
     const del = await fetch(url, { method:'DELETE', headers: dbHeaders() });
     if(!del.ok) throw new Error(table + ': ' + await del.text());
+  }
+
+  // um card de gravação (ou evento de estúdio) pode ter vários profs
+  function profsDoCard(c){
+    if(!c) return [];
+    const l = listaDeTextos(c.profs);
+    return l.length ? l : listaDeTextos(c.prof);
+  }
+  function profsDoEvento(ev){
+    if(!ev) return [];
+    const l = listaDeTextos(ev.professores);
+    return l.length ? l : listaDeTextos(ev.professor);
+  }
+  const textoProfs = arr => (arr && arr.length) ? arr.join(', ') : '';
+
+  // listas guardadas como texto separado por vírgula
+  function listaDeTextos(v){
+    if(Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
+    if(!v) return [];
+    return String(v).split(',').map(x=>x.trim()).filter(Boolean);
   }
 
   // ================= ANEXOS (imagem / PDF) =================
@@ -2694,20 +2806,24 @@
       from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'', carrosselTipo:r.carrossel_tipo||'', reelsTipo:r.reels_tipo||'', gravado:!!r.gravado, anexos:unpackAnexos(r.anexos) })
     },
     cards: {
-      to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null, etapa:c.etapa||'producao', solic_id:c.solicId||null }),
-      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', ref:r.ref||'', copy:r.copy||'', status:r.status||'a-gravar', formato:r.formato||'Feed', local:r.local||'', dataPostagem:r.data_postagem||'', fromPostId:r.from_post_id||null, etapa:r.etapa||'producao', solicId:r.solic_id||'' })
+      to:   c => ({ id:c.id, tema:c.tema||null, prof:(profsDoCard(c)[0]||null), profs:(profsDoCard(c).join(', ')||null), ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null, etapa:c.etapa||'producao', solic_id:c.solicId||null }),
+      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', profs:(listaDeTextos(r.profs).length ? listaDeTextos(r.profs) : listaDeTextos(r.prof)), ref:r.ref||'', copy:r.copy||'', status:r.status||'a-gravar', formato:r.formato||'Feed', local:r.local||'', dataPostagem:r.data_postagem||'', fromPostId:r.from_post_id||null, etapa:r.etapa||'producao', solicId:r.solic_id||'' })
     },
     studio_events: {
-      to:   e => ({ id:e.id, date:e.date||null, start_time:e.start||null, end_time:e.end||null, tipo:e.tipo||null, local:e.local||null, tema:e.tema||null, professor:e.professor||null, descricao:e.descricao||null }),
-      from: r => ({ id:r.id, date:r.date||'', start:r.start_time||'09:00', end:r.end_time||'10:00', tipo:r.tipo||'Gravação', local:r.local||'Studio 1', tema:r.tema||'', professor:r.professor||'', descricao:r.descricao||'' })
+      to:   e => ({ id:e.id, date:e.date||null, start_time:e.start||null, end_time:e.end||null, tipo:e.tipo||null, local:e.local||null, tema:e.tema||null,
+                    professor:(profsDoEvento(e)[0]||null), professores:(profsDoEvento(e).join(', ')||null), descricao:e.descricao||null }),
+      from: r => ({ id:r.id, date:r.date||'', start:r.start_time||'09:00', end:r.end_time||'10:00', tipo:r.tipo||'Gravação', local:r.local||'Studio 1', tema:r.tema||'',
+                    professor:r.professor||'', professores:(listaDeTextos(r.professores).length ? listaDeTextos(r.professores) : listaDeTextos(r.professor)), descricao:r.descricao||'' })
     },
     eventos: {
       to:   e => ({ id:e.id, date:e.date||null, descricao:e.descricao||null, responsavel:e.responsavel||null, hora_inicio:e.horaInicio||null, hora_fim:e.horaFim||null }),
       from: r => ({ id:r.id, date:r.date||'', descricao:r.descricao||'', responsavel:r.responsavel||'', horaInicio:r.hora_inicio||'', horaFim:r.hora_fim||'' })
     },
     professores: {
-      to:   p => ({ id:p.id, nome:p.nome||null, caracteristicas:p.caracteristicas||null, arte_camisa:p.arteCamisa||null, arquivos:p.arquivos||null }),
-      from: r => ({ id:r.id, nome:r.nome||'', caracteristicas:r.caracteristicas||'', arteCamisa:r.arte_camisa||'', arquivos:r.arquivos||'' })
+      to:   p => ({ id:p.id, nome:p.nome||null, caracteristicas:p.caracteristicas||null, arquivos:p.arquivos||null,
+                    materias:(p.materias||[]).join(', ') || null, link_slides:p.slides||null, link_dicas:p.dicas||null, link_questoes:p.questoes||null }),
+      from: r => ({ id:r.id, nome:r.nome||'', caracteristicas:r.caracteristicas||'', arquivos:r.arquivos||'',
+                    materias:listaDeTextos(r.materias), slides:r.link_slides||'', dicas:r.link_dicas||'', questoes:r.link_questoes||'' })
     },
     outros: {
       to:   o => ({ id:o.id, tarefa:o.tarefa||null, responsavel:o.responsavel||null, link:o.link||null, status:o.status||'pendente', projeto_id:o.projetoId||null, anexos:packAnexos(o.anexos) }),
@@ -2900,7 +3016,7 @@
     $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length + checklistExtra.filter(c=>!c.done).length;
     $('#badge-kanban').textContent = posts.filter(p=> !FEITO(p.status)).length;
     $('#badge-team').textContent = people.length;
-    $('#badge-profs').textContent = distinctProfs().filter(prof=> cards.some(c=>c.prof===prof && c.status==='a-gravar')).length;
+    $('#badge-profs').textContent = distinctProfs().filter(prof=> cards.some(c=> c.status==='a-gravar' && profsDoCard(c).includes(prof))).length;
     const todayStr0 = fmtDateFromObj(new Date());
     $('#badge-events').textContent = eventos.filter(ev=> ev.date >= todayStr0).length;
     $('#badge-outros').textContent = outros.filter(o=> o.status !== 'concluido').length;
@@ -2927,8 +3043,8 @@
   function distinctProfs(){
     const set = new Set();
     professores.forEach(p=>{ if(p.nome && p.nome.trim()) set.add(p.nome.trim()); });
-    cards.forEach(c=>{ if(c.prof && c.prof.trim()) set.add(c.prof.trim()); });
-    studioEvents.forEach(ev=>{ if(ev.professor && ev.professor.trim()) set.add(ev.professor.trim()); });
+    cards.forEach(c=> profsDoCard(c).forEach(n=> set.add(n)));
+    studioEvents.forEach(ev=> profsDoEvento(ev).forEach(n=> set.add(n)));
     roteiros.forEach(r=>{ if(r.prof && r.prof.trim()) set.add(r.prof.trim()); });
     checklistExtra.forEach(c=>{ if(c.prof && c.prof.trim()) set.add(c.prof.trim()); });
     return Array.from(set).sort((a,b)=> a.localeCompare(b));
@@ -2982,7 +3098,7 @@
     }
     fillSelect('#filterKanbanResp', respNames, 'Todos os responsáveis', filterKanbanResp);
 
-    ['#cardProf','#studioProf','#postProfessor','#roteiroProf','#solicProf'].forEach(sel=>{
+    ['#postProfessor','#roteiroProf','#solicProf'].forEach(sel=>{
       const el = $(sel); if(!el) return;
       const cur = el.value;
       el.innerHTML = '<option value="">Sem professor</option>' +
@@ -2993,6 +3109,8 @@
     const allNames = Array.from(new Set([...profNames, ...respNames])).sort((a,b)=> a.localeCompare(b));
     const dl = $('#profNamesList');
     if(dl) dl.innerHTML = allNames.map(n=>'<option value="'+escapeHtml(n)+'">').join('');
+    const dlm = $('#materiasList');
+    if(dlm) dlm.innerHTML = todasMaterias().map(m=>'<option value="'+escapeHtml(m)+'">').join('');
   }
 
   $('#filterStudioProf').addEventListener('change', (e)=>{ filterStudioProf = e.target.value; renderStudio(); });
@@ -3373,9 +3491,9 @@
         linked.dataPostagem = post.date;
         linked.formato = selectedFmt;
         linked.etapa = post.status || 'producao';
-        if(!linked.prof && post.professor) linked.prof = post.professor;
+        if(!profsDoCard(linked).length && post.professor){ linked.prof = post.professor; linked.profs = [post.professor]; }
       } else {
-        linked = { id: uid(), tema, prof: post.professor || '', ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
+        linked = { id: uid(), tema, prof: post.professor || '', profs: post.professor ? [post.professor] : [], ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
         cards.push(linked);
         updateBadges(true);
         toast(ICONS.film + ' Adicionado às Gravações e a Gravações por Prof');
@@ -3427,7 +3545,7 @@
       const body = $('.col-body[data-col="'+status+'"]');
       if(!body) return;
       const count = body.closest('.col').querySelector('.col-count');
-      const list = cards.filter(c=> c.status===status && (!filterBoardProf || c.prof===filterBoardProf));
+      const list = cards.filter(c=> c.status===status && (!filterBoardProf || profsDoCard(c).includes(filterBoardProf)));
       count.textContent = list.length;
       body.innerHTML = '';
       if(list.length===0){
@@ -3444,7 +3562,7 @@
         el.innerHTML =
           (c.fromPostId ? '<div class="rec-tag">'+ICONS.film+' do cronograma</div>' : '') +
           '<div class="rec-tema">'+escapeHtml(c.tema)+'</div>' +
-          (c.prof ? '<div class="rec-meta">'+ICONS.user+escapeHtml(c.prof)+'</div>' : '') +
+          (profsDoCard(c).length ? '<div class="rec-meta">'+ICONS.user+escapeHtml(textoProfs(profsDoCard(c)))+'</div>' : '') +
           (c.ref ? '<div class="rec-meta">'+ICONS.link+escapeHtml(c.ref)+'</div>' : '');
         el.addEventListener('click', ()=> openCardModal(c.id));
         el.addEventListener('dragstart', (e)=>{ draggedCardId = c.id; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
@@ -3568,7 +3686,7 @@
 
       const dstr = fmtDateFromObj(d);
       const dayEvs = studioEvents
-        .filter(ev=> ev.date===dstr && (!filterStudioProf || ev.professor===filterStudioProf))
+        .filter(ev=> ev.date===dstr && (!filterStudioProf || profsDoEvento(ev).includes(filterStudioProf)))
         .map(ev=>({ ev, startH: parseInt(ev.start), endH: Math.max(parseInt(ev.start)+1, parseInt(ev.end)) }))
         .sort((a,b)=> a.startH - b.startH || a.endH - b.endH);
 
@@ -3606,7 +3724,7 @@
         el.style.background = studioColor(ev.local);
         el.innerHTML = '<div class="se-tipo">'+escapeHtml(ev.tema || ev.tipo)+'</div>'+
           '<div class="se-time">'+ev.start+' – '+ev.end+' · '+escapeHtml(ev.tipo)+'</div>'+
-          (ev.professor ? '<div class="se-local">'+ICONS.user+escapeHtml(ev.professor)+'</div>' : '') +
+          (profsDoEvento(ev).length ? '<div class="se-local">'+ICONS.user+escapeHtml(textoProfs(profsDoEvento(ev)))+'</div>' : '') +
           (ev.local ? '<div class="se-local">'+ICONS.mapPin+escapeHtml(ev.local)+'</div>' : '');
         el.draggable = true;
         el.addEventListener('click', (e)=>{ e.stopPropagation(); openStudioModal(ev.date, ev.start, ev.id); });
@@ -3674,7 +3792,7 @@
       $('#studioStart').value = ev.start;
       $('#studioEnd').value = ev.end;
       $('#studioTema').value = ev.tema || '';
-      $('#studioProf').value = ev.professor || '';
+      selectedStudioProfs = profsDoEvento(ev).slice();
       $('#studioDescricao').value = ev.descricao || '';
       selectTipo(ev.tipo);
       selectLocal(ev.local || 'Studio 1');
@@ -3686,12 +3804,13 @@
       const startH = parseInt((startHour||'09:00').split(':')[0]);
       $('#studioEnd').value = hourLabel(Math.min(startH+1, 24));
       $('#studioTema').value = '';
-      $('#studioProf').value = '';
+      selectedStudioProfs = [];
       $('#studioDescricao').value = '';
       selectTipo('Gravação');
       selectLocal('Studio 1');
       $('#btnDeleteStudio').style.display='none';
     }
+    montaProfPicker('#studioProfPicker', selectedStudioProfs);
     overlay.classList.add('show');
   }
   function closeStudioModal(){ $('#overlayStudio').classList.remove('show'); }
@@ -3704,15 +3823,16 @@
     if(end <= start){ toast(ICONS.alert + ' O horário final precisa ser depois do inicial'); return; }
     const tema = $('#studioTema').value.trim();
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o evento'); return; }
-    const professor = $('#studioProf').value;
+    const professores_ = selectedStudioProfs.slice();
+    const professor = professores_[0] || '';
     const descricao = $('#studioDescricao').value;
 
     if(editingStudioId){
       const ev = studioEvents.find(x=>x.id===editingStudioId);
       ev.date = date; ev.start = start; ev.end = end; ev.tipo = selectedTipo; ev.local = selectedLocal;
-      ev.tema = tema; ev.professor = professor; ev.descricao = descricao;
+      ev.tema = tema; ev.professor = professor; ev.professores = professores_; ev.descricao = descricao;
     } else {
-      studioEvents.push({ id: uid(), date, start, end, tipo: selectedTipo, local: selectedLocal, tema, professor, descricao });
+      studioEvents.push({ id: uid(), date, start, end, tipo: selectedTipo, local: selectedLocal, tema, professor, professores: professores_, descricao });
     }
     await saveStudioEvents();
     renderStudio();
@@ -3759,7 +3879,7 @@
       const c = cards.find(x=>x.id===cardId);
       $('#cardModalTitle').textContent = 'Editar card';
       $('#cardTema').value = c.tema || '';
-      $('#cardProf').value = c.prof || '';
+      selectedCardProfs = profsDoCard(c).slice();
       $('#cardRef').value = c.ref || '';
       $('#cardCopy').value = c.copy || '';
       $('#cardStatus').value = c.status || 'a-gravar';
@@ -3770,7 +3890,7 @@
       $('#btnDeleteCard').style.display='inline-flex';
     } else {
       $('#cardModalTitle').textContent = 'Novo card';
-      $('#cardTema').value=''; $('#cardProf').value= prefillProf || ''; $('#cardRef').value=''; $('#cardCopy').value='';
+      $('#cardTema').value=''; selectedCardProfs = prefillProf ? [prefillProf] : []; $('#cardRef').value=''; $('#cardCopy').value='';
       $('#cardStatus').value='a-gravar';
       $('#cardEtapa').value='producao';
       $('#cardDataPostagem').value = '';
@@ -3778,6 +3898,7 @@
       selectCardLocal('');
       $('#btnDeleteCard').style.display='none';
     }
+    montaProfPicker('#cardProfPicker', selectedCardProfs);
     overlay.classList.add('show');
   }
   function closeCardModal(){ $('#overlayCard').classList.remove('show'); }
@@ -3788,7 +3909,8 @@
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o card'); return; }
     const data = {
       tema,
-      prof: $('#cardProf').value,
+      prof: selectedCardProfs[0] || '',
+      profs: selectedCardProfs.slice(),
       ref: $('#cardRef').value.trim(),
       copy: $('#cardCopy').value,
       status: $('#cardStatus').value,
@@ -3815,9 +3937,9 @@
         post.date = card.dataPostagem;
         post.formato = card.formato;
         if(card.etapa) post.status = card.etapa;
-        if(!post.professor && card.prof) post.professor = card.prof;
+        if(!post.professor && profsDoCard(card).length) post.professor = profsDoCard(card)[0];
       } else {
-        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel:'', professor: card.prof || '', status: card.etapa || 'producao', fromCardId: card.id };
+        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel:'', professor: profsDoCard(card)[0] || '', status: card.etapa || 'producao', fromCardId: card.id };
         posts.push(post);
         toast(ICONS.calendar + ' Também entrou no Cronograma e na Produção');
       }
@@ -4151,7 +4273,7 @@
     let msg = '';
 
     if(destino === 'profs'){
-      cards.push({ id: uid(), tema: titulo, prof: sx.prof || '', ref:'', copy: sx.descricao || '',
+      cards.push({ id: uid(), tema: titulo, prof: sx.prof || '', profs: sx.prof ? [sx.prof] : [], ref:'', copy: sx.descricao || '',
                    status:'a-gravar', formato:'Reels', local:'Em Aberto', dataPostagem:'',
                    fromPostId:null, etapa:'producao', solicId: sx.id });
       await saveCards(); renderBoard(); renderProfs();
@@ -4171,7 +4293,7 @@
       msg = 'Criada uma demanda em Outros Entregáveis';
     } else if(destino === 'studio'){
       studioEvents.push({ id: uid(), date: hoje, start:'09:00', end:'10:00', tipo:'Gravação',
-                          local:'Em Aberto', tema: titulo, professor: sx.prof || '', descricao: sx.descricao || '' });
+                          local:'Em Aberto', tema: titulo, professor: sx.prof || '', professores: sx.prof ? [sx.prof] : [], descricao: sx.descricao || '' });
       await saveStudioEvents(); renderStudio();
       msg = 'Agendada no Cronograma de Estúdio (hoje, 09:00 — ajuste a data)';
     } else { // calendar ou kanban
@@ -4257,8 +4379,8 @@
     body.innerHTML = '';
 
     const filtered = cards.filter(c=>{
-      const profName = (c.prof && c.prof.trim()) || 'Sem responsável';
-      if(filterProfsProf && profName !== filterProfsProf) return false;
+      const nomes = profsDoCard(c);
+      if(filterProfsProf && !nomes.includes(filterProfsProf)) return false;
       if(filterProfsStatus && c.status !== filterProfsStatus) return false;
       return true;
     });
@@ -4273,7 +4395,11 @@
     }
 
     const profSet = new Set();
-    filtered.forEach(c=> profSet.add((c.prof && c.prof.trim()) || 'Sem responsável'));
+    filtered.forEach(c=>{
+      const nomes = profsDoCard(c);
+      if(nomes.length) nomes.forEach(n=> profSet.add(n));
+      else profSet.add('Sem responsável');
+    });
     const profs = Array.from(profSet).sort((a,b)=>{
       if(a==='Sem responsável') return 1;
       if(b==='Sem responsável') return -1;
@@ -4288,7 +4414,10 @@
     }
 
     profs.forEach(prof=>{
-      const items = filtered.filter(c=> ((c.prof && c.prof.trim()) || 'Sem responsável') === prof);
+      const items = filtered.filter(c=>{
+        const nomes = profsDoCard(c);
+        return nomes.length ? nomes.includes(prof) : (prof === 'Sem responsável');
+      });
       const pendentes = items.filter(c=>c.status==='a-gravar').length;
 
       const groupRow = document.createElement('tr');
@@ -4308,7 +4437,7 @@
           '<td class="prof-td-check"><div class="todo-check'+(c.status==='concluido'?' checked':'')+'" data-id="'+c.id+'">'+(c.status==='concluido' ? ICONS.check : '')+'</div></td>'+
           '<td>'+escapeHtml(c.tema)+'</td>'+
           '<td class="prof-td-ref">'+refCell+'</td>'+
-          '<td>'+escapeHtml(c.prof||'')+'</td>'+
+          '<td>'+escapeHtml(textoProfs(profsDoCard(c)))+'</td>'+
           '<td>'+(c.formato ? '<span class="kanban-fmt-tag" style="background:'+(FMT_HEX[c.formato]||'#8b5cf6')+'">'+escapeHtml(c.formato)+'</span>' : '')+'</td>'+
           '<td>'+(c.dataPostagem ? formatDatePt(c.dataPostagem) : '')+'</td>'+
           '<td>'+escapeHtml(c.local||'')+'</td>'+
@@ -4377,7 +4506,7 @@
     const grid = $('#checkGrid');
     if(!grid) return;
 
-    const obrig = cards.filter(c=> c.status==='a-gravar' && (!filterChecklistProf || c.prof===filterChecklistProf));
+    const obrig = cards.filter(c=> c.status==='a-gravar' && (!filterChecklistProf || profsDoCard(c).includes(filterChecklistProf)));
     const extra = checklistExtra.filter(c=> !filterChecklistProf || c.prof===filterChecklistProf);
 
     const ce = $('#checklistExtraCount');
@@ -4390,7 +4519,11 @@
       if(!grupos.has(key)) grupos.set(key, { obrig:[], extra:[] });
       grupos.get(key)[tipo].push(item);
     };
-    obrig.forEach(c=> put(c.prof, 'obrig', c));
+    obrig.forEach(c=>{
+      const nomes = profsDoCard(c);
+      if(nomes.length) nomes.forEach(n=> put(n, 'obrig', c));
+      else put('', 'obrig', c);
+    });
     extra.forEach(c=> put(c.prof, 'extra', c));
 
     const nomes = Array.from(grupos.keys()).sort((a,b)=>{
@@ -4994,8 +5127,9 @@
       return;
     }
     professores.slice().sort((a,b)=> a.nome.localeCompare(b.nome)).forEach(p=>{
-      const pend = cards.filter(c=> c.prof===p.nome && c.status==='a-gravar').length;
-      const total = cards.filter(c=> c.prof===p.nome).length;
+      const doProf = cards.filter(c=> profsDoCard(c).includes(p.nome));
+      const pend = doProf.filter(c=> c.status==='a-gravar').length;
+      const total = doProf.length;
       const el = document.createElement('div');
       el.className = 'profbank-card';
       const ini = (p.nome||'?').trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -5006,10 +5140,89 @@
         (p.caracteristicas ? '<div class="profbank-carac">'+escapeHtml(p.caracteristicas)+'</div>' : '')+
         '<div class="profbank-count'+(pend===0?' zero':'')+'">'+pend+'</div>'+
         '<div class="profbank-count-label">a gravar de '+total+'</div>'+
-        '<div class="profbank-links">'+link(p.arteCamisa,'Camisa')+link(p.arquivos,'Arquivos')+'</div>';
+        ((p.materias && p.materias.length)
+          ? '<div class="profbank-materias">'+p.materias.map(m=>'<span>'+escapeHtml(m)+'</span>').join('')+'</div>'
+          : '')+
+        '<div class="profbank-links">'+
+          link(p.slides,'Slides')+link(p.dicas,'Dicas')+link(p.questoes,'Questões')+link(p.arquivos,'Arquivos')+
+        '</div>';
       el.addEventListener('click', ()=> openProfessorModal(p.id));
       grid.appendChild(el);
     });
+  }
+
+  let materiasEditando = [];
+  let selectedCardProfs = [];
+  let selectedStudioProfs = [];
+
+  // monta a lista de profs em pílulas que dá pra marcar/desmarcar
+  function montaProfPicker(seletor, selecionados){
+    const box = $(seletor);
+    if(!box) return;
+    box.innerHTML = '';
+    const nomes = distinctProfs();
+    if(!nomes.length){
+      box.innerHTML = '<div style="font-size:11.5px; color:var(--ink-faint);">Nenhum prof cadastrado ainda — crie no Banco de Profs.</div>';
+      return;
+    }
+    nomes.forEach(nome=>{
+      const on = selecionados.includes(nome);
+      const pill = document.createElement('div');
+      pill.className = 'type-pill' + (on ? ' sel' : '');
+      pill.dataset.nome = nome;
+      pill.innerHTML = '<span class="d" style="background:var(--violet)"></span>' + escapeHtml(nome);
+      if(on){ pill.style.background = 'var(--violet)'; pill.style.color = '#fff'; }
+      pill.addEventListener('click', ()=>{
+        const i = selecionados.indexOf(nome);
+        if(i === -1) selecionados.push(nome); else selecionados.splice(i,1);
+        montaProfPicker(seletor, selecionados);
+      });
+      box.appendChild(pill);
+    });
+  }
+
+  function renderMateriasChips(){
+    const box = $('#professorMaterias');
+    if(!box) return;
+    box.innerHTML = '';
+    if(!materiasEditando.length){
+      box.innerHTML = '<div style="font-size:11.5px; color:var(--ink-faint);">Nenhuma matéria ainda.</div>';
+      return;
+    }
+    materiasEditando.forEach(m=>{
+      const chip = document.createElement('span');
+      chip.className = 'materia-chip';
+      chip.innerHTML = escapeHtml(m) + '<button title="Remover">&times;</button>';
+      chip.querySelector('button').addEventListener('click', ()=>{
+        materiasEditando = materiasEditando.filter(x=>x!==m);
+        renderMateriasChips();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  function addMateria(){
+    const input = $('#professorMateriaInput');
+    const v = input.value.trim();
+    if(!v) return;
+    if(materiasEditando.some(m=> m.toLowerCase() === v.toLowerCase())){
+      toast(ICONS.alert + ' Essa matéria já está na lista');
+    } else {
+      materiasEditando.push(v);
+      renderMateriasChips();
+    }
+    input.value = '';
+    input.focus();
+  }
+  $('#btnAddMateria').addEventListener('click', addMateria);
+  $('#professorMateriaInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' || e.key === ','){ e.preventDefault(); addMateria(); }
+  });
+
+  function todasMaterias(){
+    const set = new Set();
+    professores.forEach(p=> (p.materias||[]).forEach(m=> set.add(m)));
+    return Array.from(set).sort((a,b)=> a.localeCompare(b));
   }
 
   function openProfessorModal(id){
@@ -5020,11 +5233,15 @@
       $('#professorModalTitle').textContent = 'Editar prof';
       $('#professorNome').value = p.nome || '';
       $('#professorCaracteristicas').value = p.caracteristicas || '';
-      $('#professorArte').value = p.arteCamisa || '';
+      $('#professorSlides').value = p.slides || '';
+      $('#professorDicas').value = p.dicas || '';
+      $('#professorQuestoes').value = p.questoes || '';
       $('#professorArquivos').value = p.arquivos || '';
+      materiasEditando = (p.materias || []).slice();
+      renderMateriasChips();
       $('#btnDeleteProfessor').style.display = 'inline-flex';
 
-      const items = cards.filter(c=> c.prof===p.nome);
+      const items = cards.filter(c=> profsDoCard(c).includes(p.nome));
       if(items.length===0){
         box.innerHTML = '<div class="prof-grav-box"><h4>Gravações</h4><div style="font-size:12px;color:var(--ink-faint)">Nada pra gravar por enquanto.</div></div>';
       } else {
@@ -5040,8 +5257,12 @@
       $('#professorModalTitle').textContent = 'Novo prof';
       $('#professorNome').value = '';
       $('#professorCaracteristicas').value = '';
-      $('#professorArte').value = '';
+      $('#professorSlides').value = '';
+      $('#professorDicas').value = '';
+      $('#professorQuestoes').value = '';
       $('#professorArquivos').value = '';
+      materiasEditando = [];
+      renderMateriasChips();
       $('#btnDeleteProfessor').style.display = 'none';
       box.innerHTML = '';
     }
@@ -5059,7 +5280,10 @@
     const data = {
       nome,
       caracteristicas: $('#professorCaracteristicas').value,
-      arteCamisa: $('#professorArte').value.trim(),
+      materias: materiasEditando.slice(),
+      slides: $('#professorSlides').value.trim(),
+      dicas: $('#professorDicas').value.trim(),
+      questoes: $('#professorQuestoes').value.trim(),
       arquivos: $('#professorArquivos').value.trim()
     };
     if(editingProfessorId){
@@ -5067,8 +5291,13 @@
       const nomeAntigo = antigo.nome;
       Object.assign(antigo, data);
       if(nomeAntigo !== nome){
-        cards.forEach(c=>{ if(c.prof===nomeAntigo) c.prof = nome; });
-        studioEvents.forEach(e=>{ if(e.professor===nomeAntigo) e.professor = nome; });
+        const troca = arr => arr.map(x=> x===nomeAntigo ? nome : x);
+        cards.forEach(c=>{
+          if(profsDoCard(c).includes(nomeAntigo)){ c.profs = troca(profsDoCard(c)); c.prof = c.profs[0] || ''; }
+        });
+        studioEvents.forEach(e=>{
+          if(profsDoEvento(e).includes(nomeAntigo)){ e.professores = troca(profsDoEvento(e)); e.professor = e.professores[0] || ''; }
+        });
         posts.forEach(p=>{ if(p.professor===nomeAntigo) p.professor = nome; });
         roteiros.forEach(r=>{ if(r.prof===nomeAntigo) r.prof = nome; });
         checklistExtra.forEach(c=>{ if(c.prof===nomeAntigo) c.prof = nome; });
@@ -5097,7 +5326,7 @@
     if(!nome) return [];
     return [].concat(
       posts.filter(p=> p.responsavel===nome && !FEITO(p.status)),
-      cards.filter(c=> c.prof===nome && c.status==='a-gravar'),
+      cards.filter(c=> profsDoCard(c).includes(nome) && c.status==='a-gravar'),
       outros.filter(o=> o.responsavel===nome && o.status!=='concluido')
     );
   }
@@ -5121,7 +5350,7 @@
           done:FEITO(p.status)
         })) },
       { titulo:'Gravações', icon:ICONS.film,
-        itens: cards.filter(c=>c.prof===nome).map(c=>({
+        itens: cards.filter(c=> profsDoCard(c).includes(nome)).map(c=>({
           id:c.id, tipo:'card', title:c.tema,
           meta:(c.dataPostagem?formatDatePt(c.dataPostagem)+' · ':'')+(c.formato||'')+(c.local?' · '+c.local:''),
           done:(c.status==='concluido')
@@ -5392,7 +5621,97 @@
   }
 
   // ---------- KANBAN DE PRODUÇÃO ----------
+  // ---------- POSTS DA SEMANA (topo da Produção) ----------
+  const DIAS_DESTAQUE = [1, 3, 5]; // segunda, quarta, sexta
+  const DIAS_NOMES = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+
+  function renderSemanaProducao(){
+    const grid = $('#semanaGrid');
+    if(!grid) return;
+    if(!semanaProdStart) semanaProdStart = getWeekStart(new Date());
+
+    const inicio = new Date(semanaProdStart);
+    const fim = new Date(semanaProdStart); fim.setDate(fim.getDate() + 6);
+    const label = $('#semanaProdLabel');
+    if(label){
+      const mesmoMes = inicio.getMonth() === fim.getMonth();
+      label.textContent = inicio.getDate() + (mesmoMes ? '' : ' ' + MONTHS[inicio.getMonth()].slice(0,3)) +
+        ' a ' + fim.getDate() + ' de ' + MONTHS[fim.getMonth()];
+    }
+
+    const daSemana = posts.filter(p=>{
+      if(!p.date) return false;
+      if(filterKanbanResp && p.responsavel !== filterKanbanResp) return false;
+      const d = new Date(p.date + 'T00:00:00');
+      return d >= inicio && d <= fim;
+    });
+    const cnt = $('#semanaCount');
+    if(cnt) cnt.textContent = daSemana.length;
+
+    const hojeStr = fmtDateFromObj(new Date());
+    grid.innerHTML = '';
+
+    const montaItem = (p)=>{
+      const el = document.createElement('div');
+      el.className = 'semana-item';
+      const st = p.status || 'producao';
+      el.innerHTML =
+        '<div class="semana-item-top">'+
+          '<span class="semana-hora">'+escapeHtml(p.horario || '')+'</span>'+
+          '<span class="semana-fmt" style="background:'+(FMT_HEX[p.formato]||'#8b5cf6')+'">'+escapeHtml(p.formato||'')+'</span>'+
+        '</div>'+
+        '<div class="semana-tema">'+escapeHtml(p.tema||'')+'</div>'+
+        '<div class="semana-meta">'+
+          '<span class="st" style="background:'+STATUS_COLORS[st]+'">'+STATUS_LABELS[st]+'</span>'+
+          (p.responsavel ? '<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'+escapeHtml(p.responsavel)+'</span>' : '')+
+        '</div>';
+      el.addEventListener('click', ()=> openPostModal(p.date, p.id));
+      return el;
+    };
+
+    const montaColuna = (titulo, sub, itens, ehHoje)=>{
+      const col = document.createElement('div');
+      col.className = 'semana-col' + (ehHoje ? ' hoje' : '');
+      col.innerHTML =
+        '<div class="semana-col-head">'+
+          '<div style="flex:1; min-width:0;">'+
+            '<div class="semana-dia">'+escapeHtml(titulo)+'</div>'+
+            (sub ? '<div class="semana-data">'+escapeHtml(sub)+'</div>' : '')+
+          '</div>'+
+          '<span class="col-count">'+itens.length+'</span>'+
+        '</div>'+
+        '<div class="semana-col-body"></div>';
+      const body = col.querySelector('.semana-col-body');
+      if(itens.length===0){
+        body.innerHTML = '<div class="semana-vazio">Nada agendado</div>';
+      } else {
+        itens.sort((a,b)=> (a.horario||'').localeCompare(b.horario||''))
+             .forEach(p=> body.appendChild(montaItem(p)));
+      }
+      grid.appendChild(col);
+    };
+
+    // segunda, quarta e sexta em destaque
+    DIAS_DESTAQUE.forEach(dow=>{
+      const dia = new Date(semanaProdStart);
+      dia.setDate(dia.getDate() + dow);
+      const dStr = fmtDateFromObj(dia);
+      const itens = daSemana.filter(p=> p.date === dStr);
+      montaColuna(DIAS_NOMES[dow], dia.getDate() + '/' + String(dia.getMonth()+1).padStart(2,'0'), itens, dStr === hojeStr);
+    });
+
+    // o que cai nos outros dias não some
+    const outros = daSemana.filter(p=>{
+      const d = new Date(p.date + 'T00:00:00');
+      return DIAS_DESTAQUE.indexOf(d.getDay()) === -1;
+    });
+    if(outros.length){
+      montaColuna('Outros dias', 'terça, quinta, sábado e domingo', outros, false);
+    }
+  }
+
   function renderKanban(){
+    renderSemanaProducao();
     STATUS_ORDER.forEach(status=>{
       const body = $('.kanban-col-body[data-col="'+status+'"]');
       const count = body.closest('.kanban-col').querySelector('.kanban-col-count');
@@ -5454,6 +5773,16 @@
     const [y,m,d] = dateStr.split('-');
     return d+'/'+m;
   }
+
+  function moveSemanaProd(dias){
+    if(!semanaProdStart) semanaProdStart = getWeekStart(new Date());
+    const nova = new Date(semanaProdStart);
+    nova.setDate(nova.getDate() + dias);
+    semanaProdStart = nova;
+    renderSemanaProducao();
+  }
+  $('#prevSemanaProd').addEventListener('click', ()=> moveSemanaProd(-7));
+  $('#nextSemanaProd').addEventListener('click', ()=> moveSemanaProd(7));
 
   $$('.kanban-col-body').forEach(body=>{
     body.addEventListener('dragover', (e)=>{ e.preventDefault(); body.classList.add('dragover'); });
