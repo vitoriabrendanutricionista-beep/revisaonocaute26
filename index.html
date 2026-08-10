@@ -34,6 +34,21 @@
   alter table cards add column if not exists profs text;
   alter table studio_events add column if not exists professores text;
 
+  -- BUCKET pros vídeos (arquivos grandes não cabem no banco)
+  insert into storage.buckets (id, name, public)
+  values ('anexos', 'anexos', true)
+  on conflict (id) do update set public = true;
+
+  drop policy if exists "anexos leitura" on storage.objects;
+  drop policy if exists "anexos envio"   on storage.objects;
+  drop policy if exists "anexos troca"   on storage.objects;
+  drop policy if exists "anexos apagar"  on storage.objects;
+
+  create policy "anexos leitura" on storage.objects for select using (bucket_id = 'anexos');
+  create policy "anexos envio"   on storage.objects for insert with check (bucket_id = 'anexos');
+  create policy "anexos troca"   on storage.objects for update using (bucket_id = 'anexos') with check (bucket_id = 'anexos');
+  create policy "anexos apagar"  on storage.objects for delete using (bucket_id = 'anexos');
+
   -- permissoes
   alter table projetos     enable row level security;
   alter table stories      enable row level security;
@@ -867,6 +882,21 @@
     width:36px; height:36px; border-radius:8px; background:rgba(248,113,113,0.16); color:#fca5a5;
     display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; flex-shrink:0;
   }
+  .anexo-video{
+    width:36px; height:36px; border-radius:8px; background:rgba(99,102,241,0.2); color:#c7d2fe;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;
+  }
+  [data-theme="light"] .anexo-video{ background:rgba(79,70,229,0.13); color:#4338ca; }
+  .lightbox video{ max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 30px 70px -20px #000; background:#000; }
+  .upload-bar{
+    font-size:11.5px; color:var(--ink-dim); display:none; align-items:center; gap:8px; margin-top:9px;
+  }
+  .upload-bar.show{ display:flex; }
+  .upload-spin{
+    width:14px; height:14px; border-radius:50%; border:2px solid var(--w200); border-top-color:var(--violet);
+    animation:spin .8s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
   .anexo-btn{
     border:none; background:var(--w080); color:var(--ink-dim); width:25px; height:25px;
     border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -1877,12 +1907,13 @@
       </div>
     </div>
     <div class="field">
-      <label>Arte / post finalizado (imagem ou PDF)</label>
+      <label>Arte / vídeo / post finalizado</label>
       <div class="file-drop" id="postDrop">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        Anexe aqui o material pronto — quem for postar só baixa
+        Anexe imagem, vídeo ou PDF — quem for postar só baixa
       </div>
-      <input type="file" id="postFile" accept="image/*,application/pdf" multiple style="display:none;">
+      <input type="file" id="postFile" accept="image/*,video/*,application/pdf" multiple style="display:none;">
+      <div class="upload-bar" id="uploadBar"><span class="upload-spin"></span><span id="uploadTexto"></span></div>
       <div class="anexo-strip" id="postAnexos" style="margin-top:10px;"></div>
     </div>
     <div class="hint-video" id="hintVideo" style="display:none;"><svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg> Esse post vai criar um card automaticamente em "A Gravar"</div>
@@ -2417,7 +2448,7 @@
   </div>
 </div>
 
-<div class="lightbox" id="lightbox"><img id="lightboxImg" alt=""></div>
+<div class="lightbox" id="lightbox"><div id="lightboxBox"></div></div>
 
 <div class="toast" id="toast"></div>
 <div id="dbErrorBox" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:600; background:#fdeaea; border:1px solid #dc2626; color:#7f1d1d; padding:12px 14px; border-radius:12px; font-size:12.5px; line-height:1.45; font-family:Poppins,sans-serif; white-space:pre-wrap; cursor:pointer;" onclick="this.style.display='none'"></div>
@@ -2455,6 +2486,7 @@
     download: '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
     paperclip: '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>',
     folder: '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
+    play: '<svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"></polygon></svg>',
     story: '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle></svg>',
     edit: '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>',
     film: '<svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>',
@@ -2687,7 +2719,34 @@
     try{ const a = JSON.parse(v); return Array.isArray(a) ? a : []; }catch(_){ return []; }
   }
 
-  const MAX_ANEXO_BYTES = 4 * 1024 * 1024; // ~4MB por arquivo
+  const MAX_ANEXO_BYTES = 4 * 1024 * 1024;        // limite pra guardar dentro do banco (imagem/PDF pequeno)
+  const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;     // limite pro arquivo ir pro Storage (vídeo)
+  const BUCKET = 'anexos';
+
+  // arquivos grandes (vídeo, PDF pesado) vão pro Storage do Supabase e a gente guarda só o link
+  async function enviarProStorage(file){
+    const nome = (file.name || 'arquivo').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const caminho = uid() + '-' + nome;
+    const res = await fetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + encodeURIComponent(caminho), {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true'
+      },
+      body: file
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + encodeURIComponent(caminho);
+  }
+
+  function mostraUpload(texto){
+    const bar = $('#uploadBar');
+    if(!bar) return;
+    if(texto){ $('#uploadTexto').textContent = texto; bar.classList.add('show'); }
+    else bar.classList.remove('show');
+  }
 
   function readFileAsDataUrl(file){
     return new Promise((resolve, reject)=>{
@@ -2726,17 +2785,46 @@
 
   async function filesToAnexos(fileList){
     const out = [];
-    for(const file of Array.from(fileList||[])){
+    const arquivos = Array.from(fileList||[]);
+    for(let i=0; i<arquivos.length; i++){
+      const file = arquivos[i];
       const isImg = /^image\//.test(file.type);
       const isPdf = file.type === 'application/pdf';
-      if(!isImg && !isPdf){
-        toast(ICONS.alert + ' Só dá pra anexar imagem ou PDF');
+      const isVid = /^video\//.test(file.type);
+      if(!isImg && !isPdf && !isVid){
+        toast(ICONS.alert + ' Só dá pra anexar imagem, vídeo ou PDF');
         continue;
       }
-      if(!isImg && file.size > MAX_ANEXO_BYTES){
-        toast(ICONS.alert + ' "' + file.name + '" passa de 4MB — suba pro Drive e cole o link');
+      if(file.size > MAX_UPLOAD_BYTES){
+        toast(ICONS.alert + ' "' + file.name + '" passa de 200MB — comprima ou mande o link');
         continue;
       }
+
+      const tipo = isVid ? 'video' : (isPdf ? 'pdf' : 'img');
+
+      // vídeo (e arquivo pesado) sobe pro Storage; imagem pequena continua no banco
+      if(isVid || file.size > MAX_ANEXO_BYTES){
+        const mb = (file.size / (1024*1024)).toFixed(1);
+        mostraUpload('Enviando "' + file.name + '" (' + mb + ' MB)' +
+          (arquivos.length > 1 ? ' — ' + (i+1) + ' de ' + arquivos.length : '') + '...');
+        try{
+          const url = await enviarProStorage(file);
+          out.push({ id: uid(), nome: file.name, tipo, dados: url, remoto: true });
+        }catch(e){
+          console.error('Falha no upload', e);
+          const msg = String((e && e.message) || e);
+          if(/Bucket not found|404/i.test(msg)){
+            toast(ICONS.alert + ' Crie o bucket "anexos" no Supabase pra enviar vídeos');
+          } else if(/row-level security|Unauthorized|403/i.test(msg)){
+            toast(ICONS.alert + ' O bucket "anexos" precisa liberar upload — veja o SQL no topo do arquivo');
+          } else {
+            toast(ICONS.alert + ' Não deu pra enviar "' + file.name + '"');
+          }
+        }
+        mostraUpload('');
+        continue;
+      }
+
       let dados;
       if(isImg){
         dados = await compressImage(file, 1500, 0.82);
@@ -2748,23 +2836,45 @@
         toast(ICONS.alert + ' "' + file.name + '" ficou grande demais mesmo comprimido');
         continue;
       }
-      out.push({ id: uid(), nome: file.name, tipo: isPdf ? 'pdf' : 'img', dados });
+      out.push({ id: uid(), nome: file.name, tipo, dados });
     }
     return out;
   }
 
-  function baixarAnexo(a){
-    const link = document.createElement('a');
-    link.href = a.dados;
-    link.download = a.nome || ('anexo.' + (a.tipo==='pdf' ? 'pdf' : 'jpg'));
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  async function baixarAnexo(a){
+    const nomeArq = a.nome || ('anexo.' + (a.tipo==='pdf' ? 'pdf' : (a.tipo==='video' ? 'mp4' : 'jpg')));
+    const baixa = (href, revoke)=>{
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = nomeArq;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      if(revoke) setTimeout(()=> URL.revokeObjectURL(href), 4000);
+    };
+    // arquivo que está no Storage: busca o conteúdo pra forçar o download com o nome certo
+    if(a.remoto || /^https?:/.test(a.dados || '')){
+      try{
+        mostraUpload('Baixando "' + nomeArq + '"...');
+        const res = await fetch(a.dados);
+        const blob = await res.blob();
+        mostraUpload('');
+        baixa(URL.createObjectURL(blob), true);
+      }catch(_){
+        mostraUpload('');
+        window.open(a.dados, '_blank');
+      }
+      return;
+    }
+    baixa(a.dados, false);
   }
 
-  function abrirLightbox(src){
+  function abrirLightbox(src, tipo){
     const lb = $('#lightbox');
-    $('#lightboxImg').src = src;
+    const box = $('#lightboxBox');
+    box.innerHTML = (tipo === 'video')
+      ? '<video src="'+src+'" controls autoplay playsinline style="max-width:100%; max-height:88vh;"></video>'
+      : '<img src="'+src+'" alt="">';
     lb.classList.add('show');
   }
 
@@ -2782,12 +2892,16 @@
       chip.innerHTML =
         (a.tipo==='pdf'
           ? '<div class="anexo-pdf">PDF</div>'
-          : '<img class="anexo-thumb" src="'+a.dados+'" alt="">')+
+          : (a.tipo==='video'
+              ? '<div class="anexo-video" title="Assistir">'+ICONS.play+'</div>'
+              : '<img class="anexo-thumb" src="'+a.dados+'" alt="">'))+
         '<span class="an-nome" title="'+escapeHtml(a.nome||'')+'">'+escapeHtml(a.nome||'arquivo')+'</span>'+
         '<button class="anexo-btn dl" title="Baixar">'+ICONS.download+'</button>'+
         (opts.editable ? '<button class="anexo-btn del" title="Remover">'+ICONS.trash+'</button>' : '');
       const thumb = chip.querySelector('.anexo-thumb');
-      if(thumb) thumb.addEventListener('click', (e)=>{ e.stopPropagation(); abrirLightbox(a.dados); });
+      if(thumb) thumb.addEventListener('click', (e)=>{ e.stopPropagation(); abrirLightbox(a.dados, 'img'); });
+      const vid = chip.querySelector('.anexo-video');
+      if(vid) vid.addEventListener('click', (e)=>{ e.stopPropagation(); abrirLightbox(a.dados, 'video'); });
       const pdfBox = chip.querySelector('.anexo-pdf');
       if(pdfBox){
         pdfBox.style.cursor = 'pointer';
@@ -5115,7 +5229,11 @@
   });
 
   // lightbox de imagem
-  $('#lightbox').addEventListener('click', ()=> $('#lightbox').classList.remove('show'));
+  $('#lightbox').addEventListener('click', (e)=>{
+    if(e.target.tagName === 'VIDEO') return; // deixa usar os controles do player
+    $('#lightbox').classList.remove('show');
+    $('#lightboxBox').innerHTML = '';
+  });
 
   // ---------- BANCO DE PROFS ----------
   function renderProfBank(){
