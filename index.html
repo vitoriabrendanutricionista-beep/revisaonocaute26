@@ -35,9 +35,11 @@
   alter table studio_events add column if not exists professores text;
 
   -- BUCKET pros vídeos (arquivos grandes não cabem no banco)
-  insert into storage.buckets (id, name, public)
-  values ('anexos', 'anexos', true)
-  on conflict (id) do update set public = true;
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('anexos', 'anexos', true, 209715200, null)
+  on conflict (id) do update
+    set public = true, file_size_limit = 209715200, allowed_mime_types = null;
+  -- obs: o limite global fica em Storage -> Configuration -> Upload file size limit
 
   drop policy if exists "anexos leitura" on storage.objects;
   drop policy if exists "anexos envio"   on storage.objects;
@@ -961,6 +963,23 @@
   }
   [data-theme="light"] .profbank-materias span{ background:rgba(124,58,237,0.13); color:#5b21b6; }
 
+  /* ---------- MODO DE VISUALIZAÇÃO DA PRODUÇÃO (celular) ---------- */
+  .kanban-modo{ display:none; }
+  @media (max-width:880px){
+    .kanban-modo{ display:inline-flex; }
+    .kanban-board{ grid-template-columns:1fr; }
+    /* colunas lado a lado, arrastando pro lado */
+    .kanban-board.modo-colunas{
+      display:flex; overflow-x:auto; gap:12px; padding-bottom:10px;
+      scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+    }
+    .kanban-board.modo-colunas .kanban-col{
+      flex:0 0 84%; min-width:84%; scroll-snap-align:start;
+    }
+    .kanban-board.modo-colunas .kanban-col-body{ max-height:66vh; overflow-y:auto; }
+    .semana-grid{ grid-template-columns:1fr; }
+  }
+
   /* ---------- POSTS DA SEMANA (topo da Produção) ---------- */
   .semana-wrap{
     background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
@@ -1747,8 +1766,14 @@
           <h1>Produção</h1>
           <p>Fluxo de cada post: Produção → Edição → Revisão Final → Pronto pra Postar. Arraste ou aprove pra avançar.</p>
         </div>
-        <div class="filter-bar">
-          <select class="filter-select" id="filterKanbanResp"><option value="">Todos os responsáveis</option></select>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="tabs kanban-modo" id="kanbanModo">
+            <div class="tab" data-modo="colunas">Colunas ↔</div>
+            <div class="tab active" data-modo="lista">Lista ↓</div>
+          </div>
+          <div class="filter-bar">
+            <select class="filter-select" id="filterKanbanResp"><option value="">Todos os responsáveis</option></select>
+          </div>
         </div>
       </div>
 
@@ -1912,7 +1937,7 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
         Anexe imagem, vídeo ou PDF — quem for postar só baixa
       </div>
-      <input type="file" id="postFile" accept="image/*,video/*,application/pdf" multiple style="display:none;">
+      <input type="file" id="postFile" accept="image/*,video/*,.mp4,.mov,.m4v,.webm,application/pdf" multiple style="display:none;">
       <div class="upload-bar" id="uploadBar"><span class="upload-spin"></span><span id="uploadTexto"></span></div>
       <div class="anexo-strip" id="postAnexos" style="margin-top:10px;"></div>
     </div>
@@ -2724,6 +2749,16 @@
   const BUCKET = 'anexos';
 
   // arquivos grandes (vídeo, PDF pesado) vão pro Storage do Supabase e a gente guarda só o link
+  function tipoMimeDe(file){
+    if(file.type) return file.type;
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    const mapa = { mp4:'video/mp4', mov:'video/quicktime', m4v:'video/x-m4v', webm:'video/webm',
+                   avi:'video/x-msvideo', mkv:'video/x-matroska', '3gp':'video/3gpp',
+                   pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png',
+                   gif:'image/gif', webp:'image/webp', heic:'image/heic' };
+    return mapa[ext] || 'application/octet-stream';
+  }
+
   async function enviarProStorage(file){
     const nome = (file.name || 'arquivo').replace(/[^a-zA-Z0-9._-]/g, '_');
     const caminho = uid() + '-' + nome;
@@ -2732,12 +2767,17 @@
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': file.type || 'application/octet-stream',
+        'Content-Type': tipoMimeDe(file),
         'x-upsert': 'true'
       },
       body: file
     });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok){
+      const txt = await res.text();
+      const err = new Error(txt || ('HTTP ' + res.status));
+      err.status = res.status;
+      throw err;
+    }
     return SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + encodeURIComponent(caminho);
   }
 
@@ -2788,9 +2828,13 @@
     const arquivos = Array.from(fileList||[]);
     for(let i=0; i<arquivos.length; i++){
       const file = arquivos[i];
-      const isImg = /^image\//.test(file.type);
-      const isPdf = file.type === 'application/pdf';
-      const isVid = /^video\//.test(file.type);
+      // alguns celulares mandam o arquivo sem type; aí vale a extensão
+      const ext = (file.name || '').split('.').pop().toLowerCase();
+      const EXT_VIDEO = ['mp4','mov','m4v','webm','avi','mkv','3gp','hevc','qt'];
+      const EXT_IMG   = ['jpg','jpeg','png','gif','webp','heic','heif','bmp'];
+      const isVid = /^video\//.test(file.type) || EXT_VIDEO.indexOf(ext) !== -1;
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+      const isImg = !isVid && !isPdf && (/^image\//.test(file.type) || EXT_IMG.indexOf(ext) !== -1);
       if(!isImg && !isPdf && !isVid){
         toast(ICONS.alert + ' Só dá pra anexar imagem, vídeo ou PDF');
         continue;
@@ -2813,12 +2857,24 @@
         }catch(e){
           console.error('Falha no upload', e);
           const msg = String((e && e.message) || e);
-          if(/Bucket not found|404/i.test(msg)){
-            toast(ICONS.alert + ' Crie o bucket "anexos" no Supabase pra enviar vídeos');
-          } else if(/row-level security|Unauthorized|403/i.test(msg)){
-            toast(ICONS.alert + ' O bucket "anexos" precisa liberar upload — veja o SQL no topo do arquivo');
+          const status = e && e.status;
+          let explica;
+          if(/Bucket not found/i.test(msg) || status === 404){
+            explica = 'O bucket "anexos" ainda não existe no Supabase. Rode o SQL que está comentado no topo do index.html.';
+          } else if(status === 413 || /too large|exceeded the maximum|Payload/i.test(msg)){
+            explica = 'O arquivo passou do limite de tamanho do Storage. No Supabase: Storage → Configuration → aumente o "Upload file size limit" (o padrão é 50MB).';
+          } else if(/mime|content type|not supported/i.test(msg)){
+            explica = 'O bucket "anexos" está aceitando só alguns tipos de arquivo. Rode o SQL do topo do index.html pra liberar vídeo.';
+          } else if(status === 403 || /row-level security|Unauthorized|new row violates/i.test(msg)){
+            explica = 'O bucket "anexos" não está liberando upload. Rode as políticas do SQL que está no topo do index.html.';
           } else {
-            toast(ICONS.alert + ' Não deu pra enviar "' + file.name + '"');
+            explica = 'Erro do Supabase: ' + msg.slice(0, 200);
+          }
+          toast(ICONS.alert + ' Não deu pra enviar "' + file.name + '"');
+          const box = document.getElementById('dbErrorBox');
+          if(box){
+            box.textContent = 'Vídeo não enviado — ' + explica;
+            box.style.display = 'block';
           }
         }
         mostraUpload('');
@@ -5891,6 +5947,24 @@
     const [y,m,d] = dateStr.split('-');
     return d+'/'+m;
   }
+
+  // no celular dá pra escolher se a Produção rola pro lado (colunas) ou pra baixo (lista)
+  const KANBAN_MODO_KEY = 'rn_producao_modo';
+  function setKanbanModo(modo){
+    const board = document.querySelector('.kanban-board');
+    if(board){
+      board.classList.toggle('modo-colunas', modo === 'colunas');
+      board.classList.toggle('modo-lista', modo !== 'colunas');
+    }
+    $$('#kanbanModo .tab').forEach(t=> t.classList.toggle('active', t.dataset.modo === modo));
+    try{ localStorage.setItem(KANBAN_MODO_KEY, modo); }catch(_){}
+  }
+  $$('#kanbanModo .tab').forEach(t=> t.addEventListener('click', ()=> setKanbanModo(t.dataset.modo)));
+  (function initKanbanModo(){
+    let salvo = null;
+    try{ salvo = localStorage.getItem(KANBAN_MODO_KEY); }catch(_){}
+    setKanbanModo(salvo === 'colunas' ? 'colunas' : 'lista');
+  })();
 
   function moveSemanaProd(dias){
     if(!semanaProdStart) semanaProdStart = getWeekStart(new Date());
