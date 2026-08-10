@@ -5,27 +5,43 @@
   ----------------------------------------------------------------------------
   Rode isso uma vez no SQL Editor do Supabase (é seguro rodar de novo depois):
 
+  -- tabelas novas
   create table if not exists projetos (
     id text primary key, nome text, descricao text, cor text
   );
   create table if not exists stories (
-    id text primary key, date text, titulo text, descricao text
+    id text primary key, date text, titulo text, descricao text, gatilho text
+  );
+  create table if not exists modelos (
+    id text primary key, nome text, formato text, formato_outro text, descricao text, anexos text
   );
   create table if not exists solicitacoes (
     id text primary key, titulo text, descricao text, solicitante text,
     prof text, destino text, status text, motivo text, criado_em text
   );
+
+  -- colunas novas em tabelas que ja existiam
+  alter table stories  add column if not exists gatilho text;
   alter table outros   add column if not exists projeto_id text;
   alter table outros   add column if not exists anexos text;
   alter table posts    add column if not exists anexos text;
   alter table cards    add column if not exists solic_id text;
   alter table roteiros add column if not exists modo text;
 
-  alter table stories      enable row level security;
-  create policy "acesso total stories" on stories for all using (true) with check (true);
+  -- permissoes
   alter table projetos     enable row level security;
+  alter table stories      enable row level security;
+  alter table modelos      enable row level security;
   alter table solicitacoes enable row level security;
+
+  drop policy if exists "acesso total projetos"     on projetos;
+  drop policy if exists "acesso total stories"      on stories;
+  drop policy if exists "acesso total modelos"      on modelos;
+  drop policy if exists "acesso total solicitacoes" on solicitacoes;
+
   create policy "acesso total projetos"     on projetos     for all using (true) with check (true);
+  create policy "acesso total stories"      on stories      for all using (true) with check (true);
+  create policy "acesso total modelos"      on modelos      for all using (true) with check (true);
   create policy "acesso total solicitacoes" on solicitacoes for all using (true) with check (true);
 
   Sem isso o app continua funcionando na tela, mas projetos, solicitações
@@ -226,7 +242,9 @@
   .team-user{ font-size:11px; color:var(--ink-faint); margin-top:8px; }
 
   /* ---------- KANBAN DE PRODUÇÃO ---------- */
-  .kanban-board{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; align-items:start; }
+  .kanban-board{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:14px; align-items:start; }
+  @media (max-width:1500px){ .kanban-board{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+  @media (max-width:1050px){ .kanban-board{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   .kanban-col{
     background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
     padding:14px; min-height:200px; box-shadow:var(--shadow);
@@ -886,6 +904,45 @@
   .check-item.done .ci-text{ text-decoration:line-through; color:var(--ink-faint); }
   .check-sec-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-faint); font-weight:700; }
 
+  /* ---------- MODELOS ---------- */
+  .modelos-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:16px;
+    max-height:calc(100vh - 215px); overflow-y:auto; padding:2px 4px 6px 2px; align-content:start;
+  }
+  .modelo-card{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:16px;
+    box-shadow:var(--shadow); cursor:pointer; transition:transform .15s, border-color .15s;
+    display:flex; flex-direction:column; overflow:hidden; min-width:0;
+  }
+  .modelo-card:hover{ transform:translateY(-3px); border-color:rgba(255,255,255,0.22); }
+  [data-theme="light"] .modelo-card:hover{ border-color:#cbb6e8; }
+  .modelo-capa{
+    width:100%; aspect-ratio:4/5; object-fit:cover; display:block;
+    background:var(--w060); cursor:zoom-in;
+  }
+  .modelo-capa-vazia{
+    width:100%; aspect-ratio:4/5; display:flex; align-items:center; justify-content:center;
+    background:var(--w040); color:var(--ink-faint); font-size:11.5px; text-align:center; padding:12px; gap:6px;
+    flex-direction:column;
+  }
+  .modelo-body{ padding:13px 14px; display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .modelo-nome{ font-weight:600; font-size:14px; line-height:1.3; overflow-wrap:anywhere; }
+  .modelo-desc{
+    font-size:11.5px; color:var(--ink-faint); line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .modelo-tag{
+    align-self:flex-start; font-size:10px; font-weight:700; color:#fff;
+    padding:3px 10px; border-radius:20px; letter-spacing:.2px;
+  }
+  .modelo-foot{ display:flex; gap:7px; margin-top:2px; }
+  .modelo-foot .btn{ flex:1; justify-content:center; padding:7px 8px; font-size:11.5px; }
+  .modelo-count{
+    position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.55); color:#fff;
+    font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+  }
+  .modelo-capa-wrap{ position:relative; }
+
   /* ---------- EDITOR DE ROTEIRO (folha branca) ---------- */
   .doc-overlay{ position:fixed; inset:0; background:#e9eaee; z-index:700; display:none; flex-direction:column; }
   .doc-overlay.show{ display:flex; }
@@ -1209,6 +1266,11 @@
         Banco de Profs
         <span class="nav-badge" id="badge-profsbank">0</span>
       </div>
+      <div class="nav-item" data-view="modelos">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        Modelos
+        <span class="nav-badge" id="badge-modelos">0</span>
+      </div>
       <div class="nav-item" data-view="roteiros">
         <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
         Banco de Roteiros
@@ -1472,6 +1534,31 @@
       <div class="profbank-grid" id="profbankGrid"></div>
     </section>
 
+    <!-- VIEW: MODELOS -->
+    <section class="view" id="view-modelos">
+      <div class="topbar">
+        <div class="title-block">
+          <h1>Modelos</h1>
+          <p>Referências de arte salvas por formato — clique num modelo pra ver a imagem inteira.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="filter-bar">
+            <select class="filter-select" id="filterModelosFmt">
+              <option value="">Todos os formatos</option>
+              <option value="Feed">Feed</option>
+              <option value="Story">Story</option>
+              <option value="Reels">Reels</option>
+              <option value="Carrossel">Carrossel</option>
+              <option value="Vídeo">Vídeo</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btnNewModelo"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Novo modelo</button>
+        </div>
+      </div>
+      <div class="modelos-grid" id="modelosGrid"></div>
+    </section>
+
     <!-- VIEW: BANCO DE ROTEIROS -->
     <section class="view" id="view-roteiros">
       <div class="topbar">
@@ -1594,6 +1681,10 @@
           <div class="kanban-col-head"><span class="col-dot" style="background:var(--emerald)"></span><span class="kanban-col-title">Pronto pra Postar</span><span class="kanban-col-count">0</span></div>
           <div class="kanban-col-body" data-col="pronto"></div>
         </div>
+        <div class="kanban-col" data-status="postado">
+          <div class="kanban-col-head"><span class="col-dot" style="background:#6366f1"></span><span class="kanban-col-title">Postado</span><span class="kanban-col-count">0</span></div>
+          <div class="kanban-col-body" data-col="postado"></div>
+        </div>
       </div>
     </section>
 
@@ -1681,26 +1772,26 @@
       </div>
     </div>
     <div class="field">
-      <label>Tema</label>
+      <label id="postTemaLabel">Tema</label>
       <input type="text" id="postTema" placeholder="Ex: Como bater meta de caixa em 30 dias">
     </div>
     <div class="field">
       <label>Responsável</label>
       <select class="status-select" id="postResponsavel"></select>
     </div>
-    <div class="field">
+    <div class="field" id="postProfRow">
       <label>Professor</label>
       <select class="status-select" id="postProfessor"></select>
     </div>
     <div class="field">
-      <label>Texto / copy do post</label>
+      <label id="postTextoLabel">Texto / copy do post</label>
       <textarea id="postTexto" placeholder="Cole aqui o texto que vai no post..."></textarea>
     </div>
-    <div class="field">
+    <div class="field" id="postArteRow">
       <label>Arte pronta (link)</label>
       <input type="text" id="postArte" placeholder="Link do Drive, Canva, Figma...">
     </div>
-    <div class="field">
+    <div class="field" id="postRefRow">
       <label>Referência</label>
       <input type="text" id="postReferencia" placeholder="Link ou descrição da referência">
     </div>
@@ -2053,6 +2144,52 @@
   </div>
 </div>
 
+<!-- MODAL: MODELO -->
+<div class="overlay" id="overlayModelo">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modeloModalTitle">Novo modelo</h2>
+      <button class="modal-close" data-close><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+    <div class="field">
+      <label>Nome do modelo</label>
+      <input type="text" id="modeloNome" placeholder="Ex: Card de contagem regressiva">
+    </div>
+    <div class="field">
+      <label>Formato</label>
+      <div class="format-picker" id="modeloFmtPicker">
+        <div class="fmt-pill" data-fmt="Feed"><span class="d" style="background:var(--violet)"></span>Feed</div>
+        <div class="fmt-pill" data-fmt="Story"><span class="d" style="background:var(--sky)"></span>Story</div>
+        <div class="fmt-pill" data-fmt="Reels"><span class="d" style="background:var(--pink)"></span>Reels</div>
+        <div class="fmt-pill" data-fmt="Carrossel"><span class="d" style="background:var(--amber)"></span>Carrossel</div>
+        <div class="fmt-pill" data-fmt="Vídeo"><span class="d" style="background:var(--emerald)"></span>Vídeo</div>
+        <div class="fmt-pill" data-fmt="Outro"><span class="d" style="background:#6366f1"></span>Outro</div>
+      </div>
+    </div>
+    <div class="field" id="modeloOutroRow" style="display:none;">
+      <label>Qual formato?</label>
+      <input type="text" id="modeloFmtOutro" placeholder="Ex: Capa de YouTube, banner, e-mail...">
+    </div>
+    <div class="field">
+      <label>Descrição / observações</label>
+      <textarea id="modeloDescricao" placeholder="Quando usar esse modelo, o que manter, o que muda..."></textarea>
+    </div>
+    <div class="field">
+      <label>Imagens do modelo</label>
+      <div class="file-drop" id="modeloDrop">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        Clique pra anexar a imagem do modelo
+      </div>
+      <input type="file" id="modeloFile" accept="image/*,application/pdf" multiple style="display:none;">
+      <div class="anexo-strip" id="modeloAnexos" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteModelo" style="display:none;">Excluir</button>
+      <button class="btn btn-primary" id="btnSaveModelo">Salvar modelo</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: STORY (cronograma de stories) -->
 <div class="overlay" id="overlayStory">
   <div class="modal">
@@ -2071,6 +2208,10 @@
     <div class="field">
       <label>Descrição</label>
       <textarea id="storyDescricao" placeholder="O que vai nesse story..." style="min-height:130px;"></textarea>
+    </div>
+    <div class="field">
+      <label>Link da automação ou palavra-gatilho</label>
+      <input type="text" id="storyGatilho" placeholder="Ex: manychat.com/... ou a palavra QUERO">
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="btnDeleteStory" style="display:none;">Excluir</button>
@@ -2246,6 +2387,7 @@
   const REELS_COLORS = { nativo:'#ec4899', audiovisual:'#6366f1' };
   // sufixo curto pro formato: carrossel nativo/design, ou status de gravação do vídeo
   function fmtSuffix(p){
+    if(p.formato==='Story') return '';
     if(p.formato==='Carrossel' && p.carrosselTipo) return p.carrosselTipo==='design' ? 'design' : 'nativo';
     if(isVideoFmt(p.formato)){
       const parts = [];
@@ -2269,10 +2411,11 @@
   }
   const WEEKDAY_NAMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-  const STATUS_ORDER = ['producao','edicao','revisao','pronto'];
-  const STATUS_LABELS = { producao:'Produção', edicao:'Edição', revisao:'Revisão Final', pronto:'Pronto pra Postar' };
-  const STATUS_COLORS = { producao:'#a400ff', edicao:'#38bdf8', revisao:'#f5a623', pronto:'#34d399' };
-  const STATUS_NEXT_LABEL = { producao:'Enviar pra Edição', edicao:'Enviar pra Revisão Final', revisao:'Aprovar e liberar pra postagem' };
+  const STATUS_ORDER = ['producao','edicao','revisao','pronto','postado'];
+  const STATUS_LABELS = { producao:'Produção', edicao:'Edição', revisao:'Revisão Final', pronto:'Pronto pra Postar', postado:'Postado' };
+  const STATUS_COLORS = { producao:'#a400ff', edicao:'#38bdf8', revisao:'#f5a623', pronto:'#34d399', postado:'#6366f1' };
+  const STATUS_NEXT_LABEL = { producao:'Enviar pra Edição', edicao:'Enviar pra Revisão Final', revisao:'Aprovar e liberar pra postagem', pronto:'Marcar como postado' };
+  const FEITO = st => st==='pronto' || st==='postado';
 
   let posts = [];
   let cards = [];
@@ -2286,6 +2429,11 @@
   let solicitacoes = [];
   let stories = [];
   let editingStoryId = null;
+  let modelos = [];
+  let editingModeloId = null;
+  let selectedModeloFmt = 'Feed';
+  let modeloAnexos = [];
+  let filterModelosFmt = '';
   let editingRoteiroId = null;
   let editingProjetoId = null;
   let editingSolicId = null;
@@ -2565,9 +2713,13 @@
       to:   o => ({ id:o.id, tarefa:o.tarefa||null, responsavel:o.responsavel||null, link:o.link||null, status:o.status||'pendente', projeto_id:o.projetoId||null, anexos:packAnexos(o.anexos) }),
       from: r => ({ id:r.id, tarefa:r.tarefa||'', responsavel:r.responsavel||'', link:r.link||'', status:r.status||'pendente', projetoId:r.projeto_id||'', anexos:unpackAnexos(r.anexos) })
     },
+    modelos: {
+      to:   m => ({ id:m.id, nome:m.nome||null, formato:m.formato||null, formato_outro:m.formatoOutro||null, descricao:m.descricao||null, anexos:packAnexos(m.anexos) }),
+      from: r => ({ id:r.id, nome:r.nome||'', formato:r.formato||'Feed', formatoOutro:r.formato_outro||'', descricao:r.descricao||'', anexos:unpackAnexos(r.anexos) })
+    },
     stories: {
-      to:   x => ({ id:x.id, date:x.date||null, titulo:x.titulo||null, descricao:x.descricao||null }),
-      from: r => ({ id:r.id, date:r.date||'', titulo:r.titulo||'', descricao:r.descricao||'' })
+      to:   x => ({ id:x.id, date:x.date||null, titulo:x.titulo||null, descricao:x.descricao||null, gatilho:x.gatilho||null }),
+      from: r => ({ id:r.id, date:r.date||'', titulo:r.titulo||'', descricao:r.descricao||'', gatilho:r.gatilho||'' })
     },
     projetos: {
       to:   p => ({ id:p.id, nome:p.nome||null, descricao:p.descricao||null, cor:p.cor||'#a400ff' }),
@@ -2628,10 +2780,10 @@
 
   async function loadAll(){
     try{
-      const [p, c, s, ce, ev, ou, pr, ro, pj, so, stx] = await Promise.all([
+      const [p, c, s, ce, ev, ou, pr, ro, pj, so, stx, mo] = await Promise.all([
         dbSelect('posts'), dbSelect('cards'), dbSelect('studio_events'),
         dbSelect('checklist_extra'), dbSelect('eventos'), dbSelect('outros'), dbSelect('professores'), dbSelect('roteiros'),
-        dbSelectSafe('projetos'), dbSelectSafe('solicitacoes'), dbSelectSafe('stories')
+        dbSelectSafe('projetos'), dbSelectSafe('solicitacoes'), dbSelectSafe('stories'), dbSelectSafe('modelos')
       ]);
       posts          = p.map(MAP.posts.from);
       cards          = c.map(MAP.cards.from);
@@ -2644,6 +2796,7 @@
       projetos       = pj.map(MAP.projetos.from);
       solicitacoes   = so.map(MAP.solicitacoes.from);
       stories        = stx.map(MAP.stories.from);
+      modelos        = mo.map(MAP.modelos.from);
     }catch(e){
       console.error('Erro ao carregar dados', e);
       showDbError('carregar', e);
@@ -2670,6 +2823,7 @@
     renderProfBank();
     renderRoteiros();
     renderSolicitacoes();
+    renderModelos();
     renderDashboard();
     updateBadges();
   }
@@ -2685,6 +2839,7 @@
   async function saveRoteiros(){ await saveTable('roteiros', roteiros); }
   async function saveProjetos(){ await saveTable('projetos', projetos); }
   async function saveStories(){ await saveTable('stories', stories); }
+  async function saveModelos(){ await saveTable('modelos', modelos); }
   async function saveSolicitacoes(){ await saveTable('solicitacoes', solicitacoes); }
   // ---------- SESSÃO (fica logado por 5h, mesmo com refresh) ----------
   const SESSION_KEY = 'rn_sessao';
@@ -2743,7 +2898,7 @@
     $('#badge-posts').textContent = posts.length + stories.length;
     $('#badge-studio').textContent = studioEvents.length;
     $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length + checklistExtra.filter(c=>!c.done).length;
-    $('#badge-kanban').textContent = posts.filter(p=>p.status!=='pronto').length;
+    $('#badge-kanban').textContent = posts.filter(p=> !FEITO(p.status)).length;
     $('#badge-team').textContent = people.length;
     $('#badge-profs').textContent = distinctProfs().filter(prof=> cards.some(c=>c.prof===prof && c.status==='a-gravar')).length;
     const todayStr0 = fmtDateFromObj(new Date());
@@ -2751,6 +2906,7 @@
     $('#badge-outros').textContent = outros.filter(o=> o.status !== 'concluido').length;
     $('#badge-profsbank').textContent = professores.length;
     $('#badge-roteiros').textContent = roteiros.length;
+    $('#badge-modelos').textContent = modelos.length;
     $('#badge-minhas').textContent = minhasPendentes(currentUser ? currentUser.nome : '').length;
     if(pulseCards){
       const b = $('#badge-checklist');
@@ -2764,6 +2920,7 @@
     renderRoteiros();
     renderChecklist();
     renderSolicitacoes();
+    renderModelos();
     renderDashboard();
   }
 
@@ -2987,8 +3144,10 @@
           const chip = document.createElement('div');
           chip.className = 'chip story';
           chip.innerHTML = '<span class="ev-ic">'+ICONS.story+'</span>'+
-            '<span class="t">'+escapeHtml(st.titulo || 'Story')+'</span>';
-          chip.title = st.descricao || '';
+            '<span class="t">'+escapeHtml(st.titulo || 'Story')+'</span>'+
+            (st.gatilho ? '<span class="ev-ic" title="tem automação/gatilho">'+ICONS.link+'</span>' : '');
+          chip.title = [st.descricao, st.gatilho ? ('Automação/gatilho: ' + st.gatilho) : '']
+            .filter(Boolean).join('\n\n');
           chip.addEventListener('click', (e)=>{ e.stopPropagation(); openStoryModal(st.id, dateStr); });
           cell.appendChild(chip);
         });
@@ -3130,12 +3289,20 @@
       p.classList.toggle('sel', active);
       p.style.background = active ? FMT_HEX[p.dataset.fmt] : '';
     });
+    const isStory = (fmt === 'Story');
     const isCarr = (fmt === 'Carrossel');
-    const isVid  = isVideoFmt(fmt);
+    const isVid  = isVideoFmt(fmt) && !isStory;
     const isReels = (fmt === 'Reels');
     $('#carrosselRow').style.display = isCarr ? 'block' : 'none';
     $('#gravadoRow').style.display   = isVid  ? 'block' : 'none';
     $('#reelsRow').style.display     = isReels ? 'block' : 'none';
+    // story é simples: só responsável, título e descrição
+    $('#postProfRow').style.display = isStory ? 'none' : 'block';
+    $('#postArteRow').style.display = isStory ? 'none' : 'block';
+    $('#postRefRow').style.display  = isStory ? 'none' : 'block';
+    $('#postTemaLabel').textContent  = isStory ? 'Título' : 'Tema';
+    $('#postTextoLabel').textContent = isStory ? 'Descrição' : 'Texto / copy do post';
+    $('#postTema').placeholder = isStory ? 'Ex: Bastidores da gravação de hoje' : 'Ex: Como bater meta de caixa em 30 dias';
     if(isCarr && !selectedCarrossel) selectCarrossel('nativo');
     if(isReels && !selectedReels) selectReels('nativo');
     updateVideoHint();
@@ -3143,7 +3310,7 @@
   function updateVideoHint(){
     const hint = $('#hintVideo');
     if(!hint) return;
-    const show = isVideoFmt(selectedFmt) && !selectedGravado;
+    const show = isVideoFmt(selectedFmt) && selectedFmt!=='Story' && !selectedGravado;
     hint.style.display = show ? 'flex' : 'none';
   }
   function selectCarrossel(v){
@@ -3195,8 +3362,11 @@
     // sincroniza com a lista de gravações (e, por consequência, com Gravações por Prof)
     // vira gravação só se for formato de vídeo E ainda for "pra gravar".
     // "já gravado" não entra em Gravações — segue só pro responsável (via post.responsavel).
-    const precisaGravar = isVideoFmt(selectedFmt) && !post.gravado;
+    const ehStory = selectedFmt === 'Story';
+    const precisaGravar = isVideoFmt(selectedFmt) && !ehStory && !post.gravado;
     let linked = cards.find(c=>c.fromPostId === post.id);
+    // story não gera gravação nova; se já existia uma, ela continua onde está
+    if(ehStory) linked = null;
     if(precisaGravar){
       if(linked){
         linked.tema = tema;
@@ -3681,6 +3851,145 @@
   });
 
   // ---------- GRAVAÇÕES POR PROF ----------
+  // ---------- MODELOS ----------
+  function modeloLabel(m){
+    return (m.formato === 'Outro' && m.formatoOutro) ? m.formatoOutro : (m.formato || 'Feed');
+  }
+  function modeloCor(m){
+    return FMT_HEX[m.formato] || '#6366f1';
+  }
+
+  function renderModelos(){
+    const grid = $('#modelosGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    const lista = modelos.filter(m=> !filterModelosFmt || m.formato === filterModelosFmt);
+    if(lista.length===0){
+      grid.innerHTML = '<div class="dash-empty" style="grid-column:1/-1;">'+
+        (modelos.length===0
+          ? 'Nenhum modelo ainda. Clique em "Novo modelo" e anexe a imagem da referência.'
+          : 'Nenhum modelo nesse formato.')+'</div>';
+      return;
+    }
+    const isViewer = currentUser && currentUser.permissao==='Visualizador';
+
+    lista.slice().reverse().forEach(m=>{
+      const imgs = (m.anexos || []).filter(a=> a.tipo === 'img');
+      const capa = imgs[0];
+      const el = document.createElement('div');
+      el.className = 'modelo-card';
+      el.innerHTML =
+        '<div class="modelo-capa-wrap">'+
+          (capa
+            ? '<img class="modelo-capa" src="'+capa.dados+'" alt="'+escapeHtml(m.nome||'')+'">'
+            : '<div class="modelo-capa-vazia">'+ICONS.paperclip+'sem imagem anexada</div>')+
+          (imgs.length > 1 ? '<span class="modelo-count">'+imgs.length+' imagens</span>' : '')+
+        '</div>'+
+        '<div class="modelo-body">'+
+          '<span class="modelo-tag" style="background:'+modeloCor(m)+'">'+escapeHtml(modeloLabel(m))+'</span>'+
+          '<div class="modelo-nome">'+escapeHtml(m.nome||'')+'</div>'+
+          (m.descricao ? '<div class="modelo-desc">'+escapeHtml(m.descricao)+'</div>' : '')+
+          '<div class="modelo-foot">'+
+            (capa ? '<button class="btn btn-ghost btn-baixar">'+ICONS.download+'Baixar</button>' : '')+
+            (isViewer ? '' : '<button class="btn btn-danger btn-del">'+ICONS.trash+'</button>')+
+          '</div>'+
+        '</div>';
+
+      const img = el.querySelector('.modelo-capa');
+      if(img) img.addEventListener('click', (e)=>{ e.stopPropagation(); abrirLightbox(capa.dados); });
+      const bx = el.querySelector('.btn-baixar');
+      if(bx) bx.addEventListener('click', (e)=>{ e.stopPropagation(); baixarAnexo(capa); });
+      const del = el.querySelector('.btn-del');
+      if(del) del.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        modelos = modelos.filter(x=>x.id!==m.id);
+        await saveModelos(); renderModelos(); updateBadges();
+      });
+      el.addEventListener('click', (e)=>{
+        if(e.target.closest('button') || e.target.closest('img')) return;
+        if(isViewer) return;
+        openModeloModal(m.id);
+      });
+      grid.appendChild(el);
+    });
+  }
+
+  function selectModeloFmt(fmt){
+    selectedModeloFmt = fmt || 'Feed';
+    $$('#modeloFmtPicker .fmt-pill').forEach(p=>{
+      const on = p.dataset.fmt === selectedModeloFmt;
+      p.classList.toggle('sel', on);
+      p.style.background = on ? (FMT_HEX[p.dataset.fmt] || '#6366f1') : '';
+    });
+    $('#modeloOutroRow').style.display = selectedModeloFmt === 'Outro' ? 'block' : 'none';
+  }
+  $$('#modeloFmtPicker .fmt-pill').forEach(p=> p.addEventListener('click', ()=> selectModeloFmt(p.dataset.fmt)));
+
+  function refreshModeloAnexosUI(){
+    renderAnexoStrip($('#modeloAnexos'), modeloAnexos, {
+      editable: !(currentUser && currentUser.permissao==='Visualizador'),
+      emptyText: 'Nenhuma imagem ainda.',
+      onRemove: (aid)=>{ modeloAnexos = modeloAnexos.filter(a=>a.id!==aid); refreshModeloAnexosUI(); }
+    });
+  }
+  $('#modeloDrop').addEventListener('click', ()=> $('#modeloFile').click());
+  $('#modeloFile').addEventListener('change', async (e)=>{
+    const novos = await filesToAnexos(e.target.files);
+    if(novos.length){ modeloAnexos = modeloAnexos.concat(novos); refreshModeloAnexosUI(); }
+    e.target.value = '';
+  });
+
+  function openModeloModal(id){
+    editingModeloId = id;
+    if(id){
+      const m = modelos.find(x=>x.id===id);
+      $('#modeloModalTitle').textContent = 'Editar modelo';
+      $('#modeloNome').value = m.nome || '';
+      $('#modeloFmtOutro').value = m.formatoOutro || '';
+      $('#modeloDescricao').value = m.descricao || '';
+      selectModeloFmt(m.formato || 'Feed');
+      modeloAnexos = (m.anexos || []).slice();
+      $('#btnDeleteModelo').style.display = 'inline-flex';
+    } else {
+      $('#modeloModalTitle').textContent = 'Novo modelo';
+      $('#modeloNome').value = '';
+      $('#modeloFmtOutro').value = '';
+      $('#modeloDescricao').value = '';
+      selectModeloFmt(filterModelosFmt || 'Feed');
+      modeloAnexos = [];
+      $('#btnDeleteModelo').style.display = 'none';
+    }
+    refreshModeloAnexosUI();
+    $('#overlayModelo').classList.add('show');
+  }
+  function closeModeloModal(){ $('#overlayModelo').classList.remove('show'); }
+
+  $('#btnNewModelo').addEventListener('click', ()=> openModeloModal(null));
+  $('#filterModelosFmt').addEventListener('change', (e)=>{ filterModelosFmt = e.target.value; renderModelos(); });
+
+  $('#btnSaveModelo').addEventListener('click', async ()=>{
+    const nome = $('#modeloNome').value.trim();
+    if(!nome){ toast(ICONS.alert + ' Dê um nome ao modelo'); return; }
+    const data = {
+      nome,
+      formato: selectedModeloFmt,
+      formatoOutro: selectedModeloFmt === 'Outro' ? $('#modeloFmtOutro').value.trim() : '',
+      descricao: $('#modeloDescricao').value,
+      anexos: modeloAnexos.slice()
+    };
+    if(editingModeloId){
+      Object.assign(modelos.find(m=>m.id===editingModeloId), data);
+    } else {
+      modelos.push({ id: uid(), ...data });
+    }
+    await saveModelos(); renderModelos(); updateBadges(); closeModeloModal();
+  });
+
+  $('#btnDeleteModelo').addEventListener('click', async ()=>{
+    modelos = modelos.filter(m=>m.id!==editingModeloId);
+    await saveModelos(); renderModelos(); updateBadges(); closeModeloModal();
+  });
+
   // ---------- CRONOGRAMA DE STORIES ----------
   function openStoryModal(id, dateStr){
     editingStoryId = id;
@@ -3690,12 +3999,14 @@
       $('#storyData').value = st.date || '';
       $('#storyTitulo').value = st.titulo || '';
       $('#storyDescricao').value = st.descricao || '';
+      $('#storyGatilho').value = st.gatilho || '';
       $('#btnDeleteStory').style.display = 'inline-flex';
     } else {
       $('#storyModalTitle').textContent = 'Novo story';
       $('#storyData').value = dateStr || fmtDateFromObj(new Date());
       $('#storyTitulo').value = '';
       $('#storyDescricao').value = '';
+      $('#storyGatilho').value = '';
       $('#btnDeleteStory').style.display = 'none';
     }
     $('#overlayStory').classList.add('show');
@@ -3709,7 +4020,7 @@
     if(!titulo){ toast(ICONS.alert + ' Escreva um título para o story'); return; }
     const date = $('#storyData').value;
     if(!date){ toast(ICONS.alert + ' Escolha o dia do story'); return; }
-    const data = { date, titulo, descricao: $('#storyDescricao').value };
+    const data = { date, titulo, descricao: $('#storyDescricao').value, gatilho: $('#storyGatilho').value.trim() };
     if(editingStoryId){
       Object.assign(stories.find(x=>x.id===editingStoryId), data);
     } else {
@@ -4039,7 +4350,7 @@
   });
 
   // ---------- MODAL CLOSE / OVERLAY ----------
-  $$('[data-close]').forEach(btn=> btn.addEventListener('click', ()=>{ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); closeOutroModal(); closeProfessorModal(); closeRoteiroModal(); closeSolicModal(); closeProjetoModal(); closeStoryModal(); }));
+  $$('[data-close]').forEach(btn=> btn.addEventListener('click', ()=>{ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); closeOutroModal(); closeProfessorModal(); closeRoteiroModal(); closeSolicModal(); closeProjetoModal(); closeStoryModal(); closeModeloModal(); }));
   $('#overlayPost').addEventListener('click', (e)=>{ if(e.target.id==='overlayPost') closePostModal(); });
   $('#overlayCard').addEventListener('click', (e)=>{ if(e.target.id==='overlayCard') closeCardModal(); });
   $('#overlayStudio').addEventListener('click', (e)=>{ if(e.target.id==='overlayStudio') closeStudioModal(); });
@@ -4050,6 +4361,7 @@
   $('#overlayRoteiro').addEventListener('click', (e)=>{ if(e.target.id==='overlayRoteiro') closeRoteiroModal(); });
   $('#overlaySolic').addEventListener('click', (e)=>{ if(e.target.id==='overlaySolic') closeSolicModal(); });
   $('#overlayStory').addEventListener('click', (e)=>{ if(e.target.id==='overlayStory') closeStoryModal(); });
+  $('#overlayModelo').addEventListener('click', (e)=>{ if(e.target.id==='overlayModelo') closeModeloModal(); });
   $('#overlayProjeto').addEventListener('click', (e)=>{ if(e.target.id==='overlayProjeto') closeProjetoModal(); });
   document.addEventListener('keydown', (e)=>{
     if(e.key!=='Escape') return;
@@ -4057,7 +4369,7 @@
     if($('#docOverlay').classList.contains('show')) return; // no editor, Esc não fecha sem querer
     closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal();
     closeEventoModal(); closeOutroModal(); closeProfessorModal(); closeRoteiroModal();
-    closeSolicModal(); closeProjetoModal(); closeStoryModal();
+    closeSolicModal(); closeProjetoModal(); closeStoryModal(); closeModeloModal();
   });
 
   // ---------- CHECKLIST DE GRAVAÇÃO ----------
@@ -4784,7 +5096,7 @@
   function minhasPendentes(nome){
     if(!nome) return [];
     return [].concat(
-      posts.filter(p=> p.responsavel===nome && p.status!=='pronto'),
+      posts.filter(p=> p.responsavel===nome && !FEITO(p.status)),
       cards.filter(c=> c.prof===nome && c.status==='a-gravar'),
       outros.filter(o=> o.responsavel===nome && o.status!=='concluido')
     );
@@ -4806,7 +5118,7 @@
         itens: posts.filter(p=>p.responsavel===nome).map(p=>({
           id:p.id, tipo:'post', title:p.tema,
           meta:(p.date?formatDatePt(p.date)+' · ':'')+p.formato+(fmtSuffix(p)?' ('+fmtSuffix(p)+')':'')+' · '+STATUS_LABELS[p.status||'producao'],
-          done:(p.status==='pronto')
+          done:FEITO(p.status)
         })) },
       { titulo:'Gravações', icon:ICONS.film,
         itens: cards.filter(c=>c.prof===nome).map(c=>({
@@ -4858,7 +5170,7 @@
   async function toggleMinha(i){
     if(i.tipo==='post'){
       const p = posts.find(x=>x.id===i.id);
-      p.status = (p.status==='pronto') ? 'producao' : 'pronto';
+      p.status = FEITO(p.status) ? 'producao' : 'pronto';
       await savePosts(); renderCalendar(); renderKanban();
     } else if(i.tipo==='card'){
       const c = cards.find(x=>x.id===i.id);
@@ -5009,7 +5321,8 @@
       { icon: ICONS.checkSquare, value: concluidos, label: 'Gravações concluídas' },
       { icon: ICONS.building, value: eventosSemana, label: 'Eventos de estúdio (semana)' },
       { icon: ICONS.listChecks, value: pendentes, label: 'Checklist (não obrigatórias)' },
-      { icon: ICONS.checkSquare, value: posts.filter(p=>p.status==='pronto').length, label: 'Posts produzidos (prontos)' }
+      { icon: ICONS.checkSquare, value: posts.filter(p=>p.status==='pronto').length, label: 'Prontos pra postar' },
+      { icon: ICONS.check, value: posts.filter(p=>p.status==='postado').length, label: 'Já postados' }
     ];
     kpiGrid.innerHTML = kpis.map(k=>
       '<div class="kpi-card"><div class="kpi-icon">'+k.icon+'</div><div class="kpi-value">'+k.value+'</div><div class="kpi-label">'+k.label+'</div></div>'
@@ -5065,7 +5378,7 @@
       const key = p.responsavel || 'Sem responsável';
       if(!counts[key]) counts[key] = { total:0, prontos:0 };
       counts[key].total++;
-      if(p.status === 'pronto') counts[key].prontos++;
+      if(FEITO(p.status)) counts[key].prontos++;
     });
     const respKeys = Object.keys(counts);
     if(respKeys.length===0){
@@ -5127,6 +5440,7 @@
               renderKanban();
               updateBadges();
               if(p.status==='pronto') toast(ICONS.check + ' Post pronto pra postar');
+              if(p.status==='postado') toast(ICONS.check + ' Post marcado como postado');
             }
           });
         }
@@ -5259,7 +5573,7 @@
     const isViewer = currentUser.permissao === 'Visualizador';
     $('#navTeam').classList.toggle('perm-hidden', !isAdmin);
     $('#btnNewPerson').classList.toggle('perm-hidden', !isAdmin);
-    ['#btnTodayCal','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro','#btnNewSolic','#btnNewProjeto','#btnNewStory'].forEach(sel=>{
+    ['#btnTodayCal','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro','#btnNewSolic','#btnNewProjeto','#btnNewStory','#btnNewModelo'].forEach(sel=>{
       const el = $(sel);
       if(el) el.classList.toggle('perm-hidden', isViewer);
     });
