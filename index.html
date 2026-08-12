@@ -176,7 +176,7 @@
     background:var(--panel); border:1px solid var(--panel-border); border-radius:12px; padding:13px 15px;
     display:flex; align-items:center; gap:12px; transition:background .15s;
   }
-  .todo-item.done .todo-text{ text-decoration:line-through; color:var(--ink-faint); }
+  .todo-item.done .todo-text{ color:var(--ink-faint); opacity:.68; }
   .todo-check{
     width:22px; height:22px; border-radius:7px; border:1.5px solid var(--w250); background:transparent;
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:all .15s;
@@ -329,7 +329,7 @@
   .prof-table tbody tr.prof-row{ cursor:pointer; transition:background .12s; }
   .prof-table tbody tr.prof-row:hover{ background:var(--w040); }
   .prof-table tbody tr.prof-row.done td{ color:var(--ink-faint); }
-  .prof-table tbody tr.prof-row.done td:nth-child(2){ text-decoration:line-through; }
+  .prof-table tbody tr.prof-row.done td:nth-child(2){ opacity:.7; }
   .prof-group-row td{
     background:rgba(139,92,246,0.10); font-size:12.5px; padding:10px 14px !important;
     border-bottom:1px solid var(--w080); display:flex; align-items:center; gap:8px;
@@ -508,6 +508,13 @@
     min-width:0; max-width:100%; overflow:hidden;
   }
   .chip.dragging{ opacity:0.4; }
+  /* feito nunca é cortado: fica mais claro */
+  .chip.feito{ opacity:.4; filter:saturate(.55); }
+  .chip.feito .t{ font-weight:500; }
+  .roteiro-card.feito{ opacity:.58; }
+  .roteiro-card.feito:hover{ opacity:.9; }
+  .kanban-card.feito{ opacity:.6; }
+  .kanban-card.feito:hover{ opacity:.92; }
   .chip.evento{
     background:var(--w060); color:var(--ink);
     border:1px solid var(--w180); border-left:3px solid var(--amber);
@@ -732,7 +739,7 @@
     background:var(--w045); border:1px solid var(--w080); border-radius:12px;
     padding:12px 13px; display:flex; gap:11px; align-items:flex-start;
   }
-  .outro-item.done .outro-tarefa{ text-decoration:line-through; color:var(--ink-faint); }
+  .outro-item.done .outro-tarefa{ color:var(--ink-faint); opacity:.68; }
   .outro-body{ flex:1; min-width:0; }
   .outro-tarefa{ font-size:13px; font-weight:600; margin-bottom:5px; white-space:pre-wrap; }
   .outro-meta{ font-size:11px; color:var(--ink-faint); display:flex; align-items:center; gap:6px; margin-top:3px; }
@@ -750,7 +757,7 @@
     background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
     padding:12px 14px; display:flex; gap:12px; align-items:center;
   }
-  .minha-item.done .minha-title{ text-decoration:line-through; color:var(--ink-faint); }
+  .minha-item.done .minha-title{ color:var(--ink-faint); opacity:.68; }
   .minha-body{ flex:1; min-width:0; }
   .minha-title{ font-size:13.5px; font-weight:600; }
   .minha-meta{ font-size:11px; color:var(--ink-faint); margin-top:3px; }
@@ -870,7 +877,7 @@
     background:var(--panel); border:1px solid var(--panel-border); border-radius:13px; padding:14px;
     display:flex; flex-direction:column; gap:9px; min-width:0; overflow:hidden;
   }
-  .demanda-card.done .demanda-tarefa{ text-decoration:line-through; color:var(--ink-faint); }
+  .demanda-card.done .demanda-tarefa{ color:var(--ink-faint); opacity:.68; }
   .demanda-top{ display:flex; gap:11px; align-items:flex-start; }
   .demanda-tarefa{ font-size:13px; font-weight:600; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; flex:1; min-width:0; }
 
@@ -941,7 +948,7 @@
   }
   .check-item:hover{ background:var(--w070); }
   .check-item .ci-text{ flex:1; min-width:0; font-size:12.5px; line-height:1.35; overflow-wrap:anywhere; }
-  .check-item.done .ci-text{ text-decoration:line-through; color:var(--ink-faint); }
+  .check-item.done .ci-text{ color:var(--ink-faint); opacity:.68; }
   .check-sec-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-faint); font-weight:700; }
 
   /* ---------- MATÉRIAS / CHIPS ---------- */
@@ -982,20 +989,24 @@
     .semana-grid{ grid-template-columns:1fr; }
   }
 
-  /* ---------- POSTS DA SEMANA (topo da Produção) ---------- */
+  /* ---------- A SEMANA INTEIRA (rodapé da Produção) ---------- */
   .semana-wrap{
     background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
-    padding:16px; box-shadow:var(--shadow); margin-bottom:20px;
+    padding:16px; box-shadow:var(--shadow); margin-top:22px;
   }
   .semana-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:13px; }
-  .semana-head h3{ margin:0; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px; color:var(--ink-dim); }
+  .semana-head h3{ margin:0; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px; color:var(--ink-dim); flex-wrap:wrap; }
   .semana-head .spacer{ flex:1; }
-  .semana-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(215px,1fr)); gap:13px; align-items:start; }
+  .semana-hint{ font-size:11px; font-weight:500; color:var(--ink-faint); }
+  .semana-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:10px; align-items:start; }
+  @media (max-width:1560px){ .semana-grid{ grid-template-columns:repeat(4, minmax(0,1fr)); } }
+  @media (max-width:1100px){ .semana-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   .semana-col{
-    background:var(--w040); border:1px solid var(--w080); border-radius:13px; padding:12px;
+    background:var(--w040); border:1px solid var(--w080); border-radius:13px; padding:11px;
     display:flex; flex-direction:column; gap:9px; min-width:0;
   }
   .semana-col.hoje{ border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset; }
+  .semana-col.fds{ background:var(--w030); }
   .semana-col-head{ display:flex; align-items:center; gap:8px; min-width:0; }
   .semana-dia{ font-size:12.5px; font-weight:700; letter-spacing:.2px; }
   .semana-data{ font-size:11px; color:var(--ink-faint); }
@@ -1780,7 +1791,7 @@
       <div class="topbar">
         <div class="title-block">
           <h1>Produção</h1>
-          <p>Fluxo de cada post: Produção → Edição → Revisão Final → Pronto pra Postar. Arraste ou aprove pra avançar.</p>
+          <p>Fluxo de cada post: Produção → Edição → Revisão Final → Pronto pra Postar → Postado. Arraste, troque no seletor ou aprove pra avançar.</p>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <div class="tabs kanban-modo" id="kanbanModo">
@@ -1791,22 +1802,6 @@
             <select class="filter-select" id="filterKanbanResp"><option value="">Todos os responsáveis</option></select>
           </div>
         </div>
-      </div>
-
-      <div class="semana-wrap" id="semanaWrap">
-        <div class="semana-head">
-          <h3>
-            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            Posts da semana <span class="col-count" id="semanaCount">0</span>
-          </h3>
-          <div class="spacer"></div>
-          <div class="month-nav">
-            <button id="prevSemanaProd">‹</button>
-            <div class="month-label" id="semanaProdLabel" style="min-width:190px;"></div>
-            <button id="nextSemanaProd">›</button>
-          </div>
-        </div>
-        <div class="semana-grid" id="semanaGrid"></div>
       </div>
 
       <div class="kanban-board">
@@ -1830,6 +1825,23 @@
           <div class="kanban-col-head"><span class="col-dot" style="background:#6366f1"></span><span class="kanban-col-title">Postado</span><span class="kanban-col-count">0</span></div>
           <div class="kanban-col-body" data-col="postado"></div>
         </div>
+      </div>
+
+      <div class="semana-wrap" id="semanaWrap">
+        <div class="semana-head">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            A semana inteira <span class="col-count" id="semanaCount">0</span>
+            <span class="semana-hint">segunda a domingo, sem o que já foi postado</span>
+          </h3>
+          <div class="spacer"></div>
+          <div class="month-nav">
+            <button id="prevSemanaProd">‹</button>
+            <div class="month-label" id="semanaProdLabel" style="min-width:190px;"></div>
+            <button id="nextSemanaProd">›</button>
+          </div>
+        </div>
+        <div class="semana-grid" id="semanaGrid"></div>
       </div>
     </section>
 
@@ -3431,7 +3443,7 @@
         const dayPosts = posts.filter(p=> p.date===dateStr && (!filterCalResp || p.responsavel===filterCalResp)).sort((a,b)=> a.horario.localeCompare(b.horario));
         dayPosts.forEach(p=>{
           const chip = document.createElement('div');
-          chip.className='chip';
+          chip.className = 'chip' + (p.status==='postado' ? ' feito' : '');
           let chipBg = FMT_COLORS[p.formato] || 'var(--violet)';
           if(p.formato==='Reels' && p.reelsTipo && REELS_COLORS[p.reelsTipo]) chipBg = REELS_COLORS[p.reelsTipo];
           chip.style.background = chipBg;
@@ -5128,7 +5140,7 @@
       const modo = roteiroModo(r);
       const stR = r.status || 'rascunho';
       const el = document.createElement('div');
-      el.className = 'roteiro-card';
+      el.className = 'roteiro-card' + ((r.status||'rascunho')==='gravado' ? ' feito' : '');
 
       let corpo;
       if(modo === 'link'){
@@ -5493,7 +5505,7 @@
           items.map(c=>
             '<div class="prof-grav-row">'+
               (c.status==='concluido' ? ICONS.check : ICONS.film)+
-              '<span style="'+(c.status==='concluido'?'text-decoration:line-through;opacity:.6':'')+'">'+escapeHtml(c.tema)+'</span>'+
+              '<span style="'+(c.status==='concluido'?'opacity:.55':'')+'">'+escapeHtml(c.tema)+'</span>'+
               '<span class="pg-etapa" style="background:'+(STATUS_COLORS[c.etapa||'producao'])+'">'+STATUS_LABELS[c.etapa||'producao']+'</span>'+
             '</div>').join('')+'</div>';
       }
@@ -5908,14 +5920,22 @@
   }
 
   // ---------- KANBAN DE PRODUÇÃO ----------
-  // ---------- POSTS DA SEMANA (topo da Produção) ----------
-  const DIAS_DESTAQUE = [1, 3, 5]; // segunda, quarta, sexta
+  // ---------- A SEMANA INTEIRA (rodapé da Produção) ----------
   const DIAS_NOMES = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+
+  // semana começa na segunda e termina no domingo
+  function getSemanaSeg(d){
+    const nd = new Date(d);
+    const dow = nd.getDay();               // 0 = domingo
+    nd.setDate(nd.getDate() - (dow === 0 ? 6 : dow - 1));
+    nd.setHours(0,0,0,0);
+    return nd;
+  }
 
   function renderSemanaProducao(){
     const grid = $('#semanaGrid');
     if(!grid) return;
-    if(!semanaProdStart) semanaProdStart = getWeekStart(new Date());
+    if(!semanaProdStart) semanaProdStart = getSemanaSeg(new Date());
 
     const inicio = new Date(semanaProdStart);
     const fim = new Date(semanaProdStart); fim.setDate(fim.getDate() + 6);
@@ -5926,8 +5946,10 @@
         ' a ' + fim.getDate() + ' de ' + MONTHS[fim.getMonth()];
     }
 
+    // o que já foi postado sai daqui — ele continua na coluna Postado do kanban
     const daSemana = posts.filter(p=>{
       if(!p.date) return false;
+      if(p.status === 'postado') return false;
       if(filterKanbanResp && p.responsavel !== filterKanbanResp) return false;
       const d = new Date(p.date + 'T00:00:00');
       return d >= inicio && d <= fim;
@@ -5956,9 +5978,9 @@
       return el;
     };
 
-    const montaColuna = (titulo, sub, itens, ehHoje)=>{
+    const montaColuna = (titulo, sub, itens, ehHoje, ehFds)=>{
       const col = document.createElement('div');
-      col.className = 'semana-col' + (ehHoje ? ' hoje' : '');
+      col.className = 'semana-col' + (ehHoje ? ' hoje' : '') + (ehFds ? ' fds' : '');
       col.innerHTML =
         '<div class="semana-col-head">'+
           '<div style="flex:1; min-width:0;">'+
@@ -5978,22 +6000,20 @@
       grid.appendChild(col);
     };
 
-    // segunda, quarta e sexta em destaque
-    DIAS_DESTAQUE.forEach(dow=>{
+    // segunda a domingo, todos os dias, sempre
+    for(let i = 0; i < 7; i++){
       const dia = new Date(semanaProdStart);
-      dia.setDate(dia.getDate() + dow);
+      dia.setDate(dia.getDate() + i);
       const dStr = fmtDateFromObj(dia);
+      const dow = dia.getDay();
       const itens = daSemana.filter(p=> p.date === dStr);
-      montaColuna(DIAS_NOMES[dow], dia.getDate() + '/' + String(dia.getMonth()+1).padStart(2,'0'), itens, dStr === hojeStr);
-    });
-
-    // o que cai nos outros dias não some
-    const outros = daSemana.filter(p=>{
-      const d = new Date(p.date + 'T00:00:00');
-      return DIAS_DESTAQUE.indexOf(d.getDay()) === -1;
-    });
-    if(outros.length){
-      montaColuna('Outros dias', 'terça, quinta, sábado e domingo', outros, false);
+      montaColuna(
+        DIAS_NOMES[dow],
+        dia.getDate() + '/' + String(dia.getMonth()+1).padStart(2,'0'),
+        itens,
+        dStr === hojeStr,
+        dow === 0 || dow === 6
+      );
     }
   }
 
@@ -6013,7 +6033,7 @@
       }
       list.forEach(p=>{
         const el = document.createElement('div');
-        el.className='kanban-card';
+        el.className = 'kanban-card' + (p.status==='postado' ? ' feito' : '');
         el.draggable = !(currentUser && currentUser.permissao==='Visualizador');
         el.dataset.id = p.id;
         const nextLabel = STATUS_NEXT_LABEL[status];
@@ -6106,7 +6126,7 @@
   })();
 
   function moveSemanaProd(dias){
-    if(!semanaProdStart) semanaProdStart = getWeekStart(new Date());
+    if(!semanaProdStart) semanaProdStart = getSemanaSeg(new Date());
     const nova = new Date(semanaProdStart);
     nova.setDate(nova.getDate() + dias);
     semanaProdStart = nova;
