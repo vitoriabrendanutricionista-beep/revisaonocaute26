@@ -22,6 +22,8 @@
 
   -- colunas novas em tabelas que ja existiam
   alter table stories  add column if not exists gatilho text;
+  alter table stories  add column if not exists responsavel text;
+  alter table roteiros add column if not exists status text;
   alter table outros   add column if not exists projeto_id text;
   alter table outros   add column if not exists anexos text;
   alter table posts    add column if not exists anexos text;
@@ -762,7 +764,7 @@
     background:var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:16px;
     box-shadow:var(--shadow); cursor:pointer; transition:transform .15s, border-color .15s;
     display:flex; flex-direction:column; gap:9px;
-    overflow:hidden; min-width:0; max-width:100%; height:250px;
+    overflow:hidden; min-width:0; max-width:100%; min-height:250px;
   }
   .roteiro-card:hover{ transform:translateY(-2px); border-color:var(--w200); }
   .roteiro-titulo{ font-weight:600; font-size:14.5px; line-height:1.3; overflow-wrap:anywhere; word-break:break-word;
@@ -1469,8 +1471,15 @@
         </div>
         <div class="dash-col">
           <div class="dash-col-head">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            Posts por formato
+          </div>
+          <div id="dashFmtList" class="dash-list"></div>
+        </div>
+        <div class="dash-col">
+          <div class="dash-col-head">
             <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Produção por responsável
+            Produção por pessoa
           </div>
           <div id="dashRespList" class="dash-list"></div>
         </div>
@@ -1676,6 +1685,13 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <div class="filter-bar">
             <select class="filter-select" id="filterRoteirosProf"><option value="">Todos os profs</option></select>
+            <select class="filter-select" id="filterRoteirosStatus">
+              <option value="">Todos os status</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="revisao">Em revisão</option>
+              <option value="aprovado">Aprovado</option>
+              <option value="gravado">Gravado</option>
+            </select>
           </div>
           <button class="btn btn-primary" id="btnNewRoteiro"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Novo roteiro</button>
         </div>
@@ -1924,12 +1940,16 @@
       <label>Referência</label>
       <input type="text" id="postReferencia" placeholder="Link ou descrição da referência">
     </div>
-    <div class="field" id="postStatusRow" style="display:none;">
+    <div class="field" id="postStatusRow">
       <label>Status de produção</label>
-      <div style="font-size:12px; color:var(--ink-faint);">
-        <span id="postStatusBadge" class="rec-tag" style="background:var(--violet); color:#fff;"></span>
-        — gerencie o andamento na aba Produção
-      </div>
+      <select class="status-select" id="postStatus">
+        <option value="producao">Produção</option>
+        <option value="edicao">Edição</option>
+        <option value="revisao">Revisão Final</option>
+        <option value="pronto">Pronto pra Postar</option>
+        <option value="postado">Postado</option>
+      </select>
+      <div style="font-size:11.5px; color:var(--ink-faint); margin-top:7px;">Ao salvar, o card se move sozinho na aba Produção.</div>
     </div>
     <div class="field">
       <label>Arte / vídeo / post finalizado</label>
@@ -2011,6 +2031,7 @@
           <option value="edicao">Edição</option>
           <option value="revisao">Revisão Final</option>
           <option value="pronto">Pronto pra Postar</option>
+          <option value="postado">Postado</option>
         </select>
       </div>
     </div>
@@ -2265,6 +2286,15 @@
       <select class="status-select" id="roteiroProf"></select>
     </div>
     <div class="field">
+      <label>Status do roteiro</label>
+      <select class="status-select" id="roteiroStatus">
+        <option value="rascunho">Rascunho</option>
+        <option value="revisao">Em revisão</option>
+        <option value="aprovado">Aprovado</option>
+        <option value="gravado">Gravado</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Como você quer guardar esse roteiro?</label>
       <div class="format-picker" id="roteiroModoPicker">
         <div class="opt-pill" data-modo="link"><span class="d" style="background:var(--sky)"></span>Anexar link</div>
@@ -2351,6 +2381,10 @@
     <div class="field">
       <label>Título</label>
       <input type="text" id="storyTitulo" placeholder="Ex: Bastidores da gravação">
+    </div>
+    <div class="field">
+      <label>Responsável</label>
+      <select class="status-select" id="storyResponsavel"></select>
     </div>
     <div class="field">
       <label>Descrição</label>
@@ -2595,6 +2629,7 @@
   let postAnexos = [];
   let docTargetId = null;
   let filterRoteirosProf = '';
+  let filterRoteirosStatus = '';
   let filterChecklistProf = '';
   let editingProfessorId = null;
   let editingOutroId = null;
@@ -3004,8 +3039,8 @@
       from: r => ({ id:r.id, nome:r.nome||'', formato:r.formato||'Feed', formatoOutro:r.formato_outro||'', descricao:r.descricao||'', anexos:unpackAnexos(r.anexos) })
     },
     stories: {
-      to:   x => ({ id:x.id, date:x.date||null, titulo:x.titulo||null, descricao:x.descricao||null, gatilho:x.gatilho||null }),
-      from: r => ({ id:r.id, date:r.date||'', titulo:r.titulo||'', descricao:r.descricao||'', gatilho:r.gatilho||'' })
+      to:   x => ({ id:x.id, date:x.date||null, titulo:x.titulo||null, descricao:x.descricao||null, gatilho:x.gatilho||null, responsavel:x.responsavel||null }),
+      from: r => ({ id:r.id, date:r.date||'', titulo:r.titulo||'', descricao:r.descricao||'', gatilho:r.gatilho||'', responsavel:r.responsavel||'' })
     },
     projetos: {
       to:   p => ({ id:p.id, nome:p.nome||null, descricao:p.descricao||null, cor:p.cor||'#a400ff' }),
@@ -3020,8 +3055,8 @@
       from: r => ({ id:r.id, nome:r.nome||'', setor:r.setor||'', usuario:r.usuario||'', senha:r.senha||'', permissao:r.permissao||'Editor' })
     },
     roteiros: {
-      to:   r0 => ({ id:r0.id, titulo:r0.titulo||null, prof:r0.prof||null, texto:r0.texto||null, link:r0.link||null, modo:r0.modo||null }),
-      from: r => ({ id:r.id, titulo:r.titulo||'', prof:r.prof||'', texto:r.texto||'', link:r.link||'', modo:r.modo || (r.link && !r.texto ? 'link' : 'texto') })
+      to:   r0 => ({ id:r0.id, titulo:r0.titulo||null, prof:r0.prof||null, texto:r0.texto||null, link:r0.link||null, modo:r0.modo||null, status:r0.status||null }),
+      from: r => ({ id:r.id, titulo:r.titulo||'', prof:r.prof||'', texto:r.texto||'', link:r.link||'', modo:r.modo || (r.link && !r.texto ? 'link' : 'texto'), status:r.status||'rascunho' })
     },
     checklist_extra: {
       to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, done:!!c.done }),
@@ -3253,7 +3288,7 @@
           .map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.nome||'')+'</option>').join('');
       if(projetos.some(p=>p.id===cur)) projSel.value = cur;
     }
-    ['#postResponsavel','#outroResponsavel','#eventoResponsavel'].forEach(sel=>{
+    ['#postResponsavel','#outroResponsavel','#eventoResponsavel','#storyResponsavel'].forEach(sel=>{
       const el = $(sel); if(!el) return;
       const cur = el.value;
       el.innerHTML = '<option value="">Sem responsável</option>' +
@@ -3289,6 +3324,7 @@
   $('#filterProfsProf').addEventListener('change', (e)=>{ filterProfsProf = e.target.value; renderProfs(); });
   $('#filterProfsStatus').addEventListener('change', (e)=>{ filterProfsStatus = e.target.value; renderProfs(); });
   $('#filterRoteirosProf').addEventListener('change', (e)=>{ filterRoteirosProf = e.target.value; renderRoteiros(); });
+  $('#filterRoteirosStatus').addEventListener('change', (e)=>{ filterRoteirosStatus = e.target.value; renderRoteiros(); });
   $('#filterChecklistProf').addEventListener('change', (e)=>{ filterChecklistProf = e.target.value; renderChecklist(); });
 
   // ---------- NAV ----------
@@ -3434,7 +3470,7 @@
           chip.innerHTML = '<span class="ev-ic">'+ICONS.story+'</span>'+
             '<span class="t">'+escapeHtml(st.titulo || 'Story')+'</span>'+
             (st.gatilho ? '<span class="ev-ic" title="tem automação/gatilho">'+ICONS.link+'</span>' : '');
-          chip.title = [st.descricao, st.gatilho ? ('Automação/gatilho: ' + st.gatilho) : '']
+          chip.title = [st.responsavel ? ('Responsável: ' + st.responsavel) : '', st.descricao, st.gatilho ? ('Automação/gatilho: ' + st.gatilho) : '']
             .filter(Boolean).join('\n\n');
           chip.addEventListener('click', (e)=>{ e.stopPropagation(); openStoryModal(st.id, dateStr); });
           cell.appendChild(chip);
@@ -3525,10 +3561,7 @@
       refreshFilterOptions();
       $('#postProfessor').value = p.professor || '';
       postAnexos = (p.anexos || []).slice();
-      $('#postStatusRow').style.display = 'block';
-      const badge = $('#postStatusBadge');
-      badge.textContent = STATUS_LABELS[p.status || 'producao'];
-      badge.style.background = STATUS_COLORS[p.status || 'producao'];
+      $('#postStatus').value = p.status || 'producao';
       $('#btnDeletePost').style.display='inline-flex';
     } else {
       $('#postModalTitle').textContent = 'Novo post';
@@ -3545,7 +3578,7 @@
       refreshFilterOptions();
       $('#postProfessor').value = '';
       postAnexos = [];
-      $('#postStatusRow').style.display = 'none';
+      $('#postStatus').value = 'producao';
       $('#btnDeletePost').style.display='none';
     }
     refreshPostAnexosUI();
@@ -3629,6 +3662,7 @@
     if(editingPostId){
       post = posts.find(p=>p.id===editingPostId);
       post.horario = horario; post.formato = selectedFmt; post.tema = tema; post.responsavel = responsavel;
+      post.status = $('#postStatus').value || 'producao';
       post.texto = $('#postTexto').value; post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
       post.professor = $('#postProfessor').value;
       post.carrosselTipo = (selectedFmt==='Carrossel') ? selectedCarrossel : '';
@@ -3636,7 +3670,7 @@
       post.gravado = isVideoFmt(selectedFmt) ? selectedGravado : false;
       post.anexos = postAnexos.slice();
     } else {
-      post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status:'producao',
+      post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status: ($('#postStatus').value || 'producao'),
                texto: $('#postTexto').value, arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
                professor: $('#postProfessor').value,
                carrosselTipo: (selectedFmt==='Carrossel') ? selectedCarrossel : '',
@@ -3646,6 +3680,7 @@
       posts.push(post);
     }
     await savePosts();
+    await sincronizaCardDoPost(post);
 
     // sincroniza com a lista de gravações (e, por consequência, com Gravações por Prof)
     // vira gravação só se for formato de vídeo E ainda for "pra gravar".
@@ -4100,6 +4135,12 @@
     await saveCards();
 
     // interliga com o cronograma de posts + kanban de produção
+    const postVinc0 = card.fromPostId ? posts.find(p=>p.id===card.fromPostId) : posts.find(p=>p.fromCardId===card.id);
+    if(postVinc0 && !card.dataPostagem && card.etapa && postVinc0.status !== card.etapa){
+      postVinc0.status = card.etapa;
+      await savePosts();
+      renderCalendar(); renderKanban();
+    }
     if(card.dataPostagem){
       let post = card.fromPostId ? posts.find(p=>p.id===card.fromPostId) : posts.find(p=>p.fromCardId===card.id);
       if(post){
@@ -4285,6 +4326,7 @@
   // ---------- CRONOGRAMA DE STORIES ----------
   function openStoryModal(id, dateStr){
     editingStoryId = id;
+    refreshFilterOptions();
     if(id){
       const st = stories.find(x=>x.id===id);
       $('#storyModalTitle').textContent = 'Editar story';
@@ -4292,6 +4334,7 @@
       $('#storyTitulo').value = st.titulo || '';
       $('#storyDescricao').value = st.descricao || '';
       $('#storyGatilho').value = st.gatilho || '';
+      $('#storyResponsavel').value = st.responsavel || '';
       $('#btnDeleteStory').style.display = 'inline-flex';
     } else {
       $('#storyModalTitle').textContent = 'Novo story';
@@ -4299,6 +4342,7 @@
       $('#storyTitulo').value = '';
       $('#storyDescricao').value = '';
       $('#storyGatilho').value = '';
+      $('#storyResponsavel').value = currentUser ? currentUser.nome : '';
       $('#btnDeleteStory').style.display = 'none';
     }
     $('#overlayStory').classList.add('show');
@@ -4312,7 +4356,7 @@
     if(!titulo){ toast(ICONS.alert + ' Escreva um título para o story'); return; }
     const date = $('#storyData').value;
     if(!date){ toast(ICONS.alert + ' Escolha o dia do story'); return; }
-    const data = { date, titulo, descricao: $('#storyDescricao').value, gatilho: $('#storyGatilho').value.trim() };
+    const data = { date, titulo, descricao: $('#storyDescricao').value, gatilho: $('#storyGatilho').value.trim(), responsavel: $('#storyResponsavel').value };
     if(editingStoryId){
       Object.assign(stories.find(x=>x.id===editingStoryId), data);
     } else {
@@ -5057,6 +5101,10 @@
   });
 
   // ---------- BANCO DE ROTEIROS ----------
+  const ROTEIRO_STATUS_ORDER = ['rascunho','revisao','aprovado','gravado'];
+  const ROTEIRO_STATUS_LABELS = { rascunho:'Rascunho', revisao:'Em revisão', aprovado:'Aprovado', gravado:'Gravado' };
+  const ROTEIRO_STATUS_COLORS = { rascunho:'#a400ff', revisao:'#f5a623', aprovado:'#34d399', gravado:'#6366f1' };
+
   function roteiroModo(r){
     if(r.modo) return r.modo;
     return (r.link && !r.texto) ? 'link' : 'texto';
@@ -5066,15 +5114,19 @@
     const grid = $('#roteirosGrid');
     if(!grid) return;
     grid.innerHTML = '';
-    const list = roteiros.filter(r=> !filterRoteirosProf || r.prof === filterRoteirosProf);
+    const list = roteiros.slice().reverse()
+      .filter(r=> (!filterRoteirosProf || r.prof === filterRoteirosProf) &&
+                  (!filterRoteirosStatus || (r.status||'rascunho') === filterRoteirosStatus))
+      .sort((a,b)=> ROTEIRO_STATUS_ORDER.indexOf(a.status||'rascunho') - ROTEIRO_STATUS_ORDER.indexOf(b.status||'rascunho'));
     if(list.length===0){
       grid.innerHTML = '<div class="dash-empty" style="grid-column:1/-1;">'+(roteiros.length===0 ? 'Nenhum roteiro cadastrado. Clique em "Novo roteiro" pra começar.' : 'Nenhum roteiro com esse filtro.')+'</div>';
       return;
     }
     const isViewer = currentUser && currentUser.permissao==='Visualizador';
 
-    list.slice().reverse().forEach(r=>{
+    list.forEach(r=>{
       const modo = roteiroModo(r);
+      const stR = r.status || 'rascunho';
       const el = document.createElement('div');
       el.className = 'roteiro-card';
 
@@ -5092,10 +5144,14 @@
       }
 
       el.innerHTML =
-        '<span class="roteiro-tag '+modo+'">'+(modo==='link' ? 'Link' : 'Texto')+'</span>'+
+        '<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">'+
+          '<span class="roteiro-tag '+modo+'">'+(modo==='link' ? 'Link' : 'Texto')+'</span>'+
+          '<span class="roteiro-tag" style="background:'+ROTEIRO_STATUS_COLORS[stR]+'; color:#fff;">'+ROTEIRO_STATUS_LABELS[stR]+'</span>'+
+        '</div>'+
         '<div class="roteiro-titulo">'+escapeHtml(r.titulo||'')+'</div>'+
         corpo+
         (r.prof ? '<div class="roteiro-meta"><span style="flex-shrink:0;">'+ICONS.user+'</span><span class="roteiro-link" style="color:var(--ink-faint); text-decoration:none;">'+escapeHtml(r.prof)+'</span></div>' : '')+
+        (isViewer ? '' : '<select class="mini-select rot-status" style="margin-top:auto;">'+ROTEIRO_STATUS_ORDER.map(s0=>'<option value="'+s0+'"'+(s0===stR?' selected':'')+'>'+ROTEIRO_STATUS_LABELS[s0]+'</option>').join('')+'</select>')+
         '<div class="roteiro-actions">'+
           (modo==='link'
             ? '<button class="btn btn-ghost btn-abrir">Abrir link</button>'
@@ -5104,6 +5160,17 @@
           (isViewer ? '' : '<button class="btn btn-danger btn-del">'+ICONS.trash+'</button>')+
         '</div>';
 
+      const rotSt = el.querySelector('.rot-status');
+      if(rotSt){
+        rotSt.addEventListener('click', (e)=> e.stopPropagation());
+        rotSt.addEventListener('change', async (e)=>{
+          e.stopPropagation();
+          r.status = e.target.value;
+          await saveRoteiros();
+          renderRoteiros();
+          toast(ICONS.check + ' Roteiro agora está em: ' + ROTEIRO_STATUS_LABELS[r.status]);
+        });
+      }
       const abrir = el.querySelector('.btn-abrir');
       if(abrir) abrir.addEventListener('click', (e)=>{
         e.stopPropagation();
@@ -5170,6 +5237,7 @@
       $('#roteiroProf').value = r.prof || '';
       $('#roteiroLink').value = r.link || '';
       $('#roteiroTexto').value = r.texto || '';
+      $('#roteiroStatus').value = r.status || 'rascunho';
       selectRoteiroModo(roteiroModo(r));
       $('#btnDeleteRoteiro').style.display = 'inline-flex';
     } else {
@@ -5178,6 +5246,7 @@
       $('#roteiroProf').value = '';
       $('#roteiroLink').value = '';
       $('#roteiroTexto').value = '';
+      $('#roteiroStatus').value = 'rascunho';
       selectRoteiroModo('texto');
       $('#btnDeleteRoteiro').style.display = 'none';
     }
@@ -5195,6 +5264,7 @@
     const data = {
       titulo,
       prof: $('#roteiroProf').value,
+      status: $('#roteiroStatus').value,
       modo: selectedRoteiroModo,
       link: selectedRoteiroModo==='link' ? $('#roteiroLink').value.trim() : '',
       texto: selectedRoteiroModo==='texto' ? $('#roteiroTexto').value : ''
@@ -5774,23 +5844,66 @@
       ).join('');
     }
 
-    // produção por responsável
+    // posts por formato
+    const fmtList = $('#dashFmtList');
+    if(fmtList){
+      const fmtCounts = {};
+      posts.forEach(p=>{
+        const k = p.formato || 'Sem formato';
+        fmtCounts[k] = (fmtCounts[k]||0) + 1;
+      });
+      if(stories.length) fmtCounts['Sequência de stories'] = stories.length;
+      const fmtKeys = Object.keys(fmtCounts).sort((a,b)=> fmtCounts[b]-fmtCounts[a]);
+      if(fmtKeys.length===0){
+        fmtList.innerHTML = '<div class="dash-empty">Nenhum post cadastrado ainda.</div>';
+      } else {
+        const maxFmt = Math.max.apply(null, fmtKeys.map(k=> fmtCounts[k]));
+        fmtList.innerHTML = fmtKeys.map(k=>{
+          const cor = FMT_HEX[k] || (k==='Sequência de stories' ? '#38bdf8' : '#6366f1');
+          const pct = Math.round(fmtCounts[k]*100/maxFmt);
+          return '<div class="dash-item">'+
+            '<div class="di-title" style="display:flex; justify-content:space-between; gap:8px;"><span>'+escapeHtml(k)+'</span><span>'+fmtCounts[k]+'</span></div>'+
+            '<div style="height:6px; border-radius:20px; background:var(--w080); overflow:hidden; margin-top:7px;">'+
+              '<div style="height:100%; width:'+pct+'%; background:'+cor+';"></div>'+
+            '</div></div>';
+        }).join('');
+      }
+    }
+
+    // produção por pessoa
     const respList = $('#dashRespList');
     const counts = {};
+    const bump = (nome, campo)=>{
+      const k = (nome && nome.trim()) || 'Sem responsável';
+      if(!counts[k]) counts[k] = { posts:0, gravacoes:0, stories:0, total:0, prontos:0 };
+      counts[k][campo]++;
+      counts[k].total++;
+      return counts[k];
+    };
     posts.forEach(p=>{
-      const key = p.responsavel || 'Sem responsável';
-      if(!counts[key]) counts[key] = { total:0, prontos:0 };
-      counts[key].total++;
-      if(FEITO(p.status)) counts[key].prontos++;
+      const c0 = bump(p.responsavel,'posts');
+      if(FEITO(p.status)) c0.prontos++;
     });
+    cards.forEach(c=>{
+      const nomes = profsDoCard(c);
+      const alvos = nomes.length ? nomes.map(n=> bump(n,'gravacoes')) : [bump('','gravacoes')];
+      if(c.status==='concluido') alvos.forEach(x=> x.prontos++);
+    });
+    stories.forEach(s0=> bump(s0.responsavel,'stories'));
     const respKeys = Object.keys(counts);
     if(respKeys.length===0){
-      respList.innerHTML = '<div class="dash-empty">Nenhum post cadastrado ainda.</div>';
+      respList.innerHTML = '<div class="dash-empty">Nada cadastrado ainda.</div>';
     } else {
-      respList.innerHTML = respKeys.sort((a,b)=> counts[b].total - counts[a].total).map(k=>
-        '<div class="dash-item"><div class="di-title">'+escapeHtml(k)+'</div>'+
-        '<div class="di-meta">'+counts[k].total+' posts · '+counts[k].prontos+' prontos</div></div>'
-      ).join('');
+      respList.innerHTML = respKeys.sort((a,b)=> counts[b].total - counts[a].total).map(k=>{
+        const c0 = counts[k];
+        const partes = [];
+        if(c0.posts) partes.push(c0.posts + (c0.posts===1 ? ' post' : ' posts'));
+        if(c0.gravacoes) partes.push(c0.gravacoes + (c0.gravacoes===1 ? ' gravação' : ' gravações'));
+        if(c0.stories) partes.push(c0.stories + (c0.stories===1 ? ' story' : ' stories'));
+        return '<div class="dash-item">'+
+          '<div class="di-title" style="display:flex; justify-content:space-between; gap:8px;"><span>'+escapeHtml(k)+'</span><span>'+c0.total+'</span></div>'+
+          '<div class="di-meta">'+partes.join(' · ')+' · '+c0.prontos+(c0.prontos===1 ? ' concluído' : ' concluídos')+'</div></div>';
+      }).join('');
     }
   }
 
@@ -5913,9 +6026,24 @@
             ? '<div class="kanban-meta">'+ICONS.paperclip+p.anexos.length+' arquivo'+(p.anexos.length===1?'':'s')+' pronto'+(p.anexos.length===1?'':'s')+'</div>'+
               '<div class="anexo-strip kb-anexos" style="margin:6px 0 2px;"></div>'
             : '')+
+          ((!currentUser || currentUser.permissao!=='Visualizador')
+            ? '<select class="mini-select kanban-status" style="margin-top:9px;">'+STATUS_ORDER.map(s0=>'<option value="'+s0+'"'+(s0===(p.status||'producao')?' selected':'')+'>'+STATUS_LABELS[s0]+'</option>').join('')+'</select>'
+            : '')+
           (nextLabel && (!currentUser || currentUser.permissao!=='Visualizador') ? '<button class="kanban-approve" data-id="'+p.id+'">'+ICONS.check+nextLabel+'</button>' : '');
         const kbBox = el.querySelector('.kb-anexos');
         if(kbBox) renderAnexoStrip(kbBox, p.anexos || []);
+        const stSel = el.querySelector('.kanban-status');
+        if(stSel){
+          stSel.addEventListener('click', (e)=> e.stopPropagation());
+          stSel.addEventListener('change', async (e)=>{
+            e.stopPropagation();
+            p.status = e.target.value;
+            await savePosts();
+            await sincronizaCardDoPost(p);
+            renderKanban(); renderCalendar(); updateBadges();
+            toast(ICONS.check + ' Movido para ' + STATUS_LABELS[p.status]);
+          });
+        }
         el.addEventListener('click', (e)=>{
           if(e.target.closest('.kanban-approve')) return;
           openPostModal(p.date, p.id);
@@ -5940,6 +6068,17 @@
         body.appendChild(el);
       });
     });
+  }
+
+  // mantém o card de gravação na mesma etapa do post vinculado
+  async function sincronizaCardDoPost(post){
+    if(!post) return;
+    const vinc = cards.find(c=> c.fromPostId===post.id) || (post.fromCardId ? cards.find(c=> c.id===post.fromCardId) : null);
+    if(vinc && vinc.etapa !== post.status){
+      vinc.etapa = post.status;
+      await saveCards();
+      renderBoard(); renderProfs();
+    }
   }
 
   function formatDatePt(dateStr){
