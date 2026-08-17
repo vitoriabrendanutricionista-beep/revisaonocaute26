@@ -35,6 +35,11 @@
   alter table professores add column if not exists link_questoes text;
   alter table cards add column if not exists profs text;
   alter table studio_events add column if not exists professores text;
+  alter table professores add column if not exists slides_anexos text;
+  alter table professores add column if not exists dicas_anexos text;
+  alter table professores add column if not exists todos text;
+  alter table checklist_extra add column if not exists tipo text;
+  alter table checklist_extra add column if not exists obrigatoria boolean;
 
   -- BUCKET pros vídeos (arquivos grandes não cabem no banco)
   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -645,21 +650,30 @@
   /* ---------- STUDIO SCHEDULE ---------- */
   .studio-wrap{
     background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
-    padding:16px; box-shadow:var(--shadow); overflow-x:auto;
+    padding:16px; box-shadow:var(--shadow);
   }
-  .studio-scroll{ max-height:620px; overflow-y:auto; border-radius:12px; }
+  /* os dois scrolls moram aqui: vertical pelas horas, horizontal pelos dias */
+  .studio-scroll{
+    max-height:620px; overflow:auto; border-radius:12px;
+    overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  .studio-scroll::-webkit-scrollbar{ height:10px; width:10px; }
+  .studio-scroll::-webkit-scrollbar-thumb{ background:var(--w140); border-radius:20px; }
+  .studio-scroll::-webkit-scrollbar-thumb:hover{ background:var(--w220); }
   .studio-grid{
     display:grid;
-    grid-template-columns:64px repeat(7, minmax(120px, 1fr));
-    min-width:920px;
+    grid-template-columns:64px repeat(7, minmax(150px, 1fr));
+    min-width:1114px;
     position:relative;
   }
   .studio-corner{
-    position:sticky; top:0; left:0; z-index:3;
+    position:sticky; top:0; left:0; z-index:6;
     background:var(--solid-2);
+    border-right:1px solid var(--panel-border);
   }
   .studio-daycol-head{
-    position:sticky; top:0; z-index:2;
+    position:sticky; top:0; z-index:4;
     background:var(--solid-2);
     text-align:center; padding:10px 4px; border-left:1px solid var(--w060);
   }
@@ -667,6 +681,9 @@
   .studio-daycol-head .ddate{font-size:15px; font-weight:700; margin-top:2px;}
   .studio-daycol-head.is-today .ddate{ color:var(--violet); }
   .studio-hour-label{
+    position:sticky; left:0; z-index:5;
+    background:var(--solid-2);
+    border-right:1px solid var(--panel-border);
     font-size:10.5px; color:var(--ink-faint); text-align:right; padding:2px 10px 0 0;
     border-top:1px solid var(--w050);
     height:52px; box-sizing:border-box;
@@ -686,6 +703,12 @@
   .studio-event:hover{ box-shadow:0 10px 20px -8px rgba(0,0,0,0.7); filter:brightness(1.06); }
   .studio-event.dragging{ opacity:0.45; }
   .studio-grid.drag-active .studio-event{ pointer-events:none; }
+  /* linha guia da meia hora, pra bater o olho em 16:30 */
+  .studio-cell{ background-image:linear-gradient(to bottom, transparent calc(50% - 1px), var(--panel-border) 50%, transparent calc(50% + 1px)); background-repeat:no-repeat; }
+  .studio-event.curto{ padding-top:3px; padding-bottom:3px; }
+  .studio-event.curto .se-tipo{ font-size:11px; line-height:1.15; }
+  .studio-event.curto .se-time{ font-size:9.5px; }
+  .studio-event.curto .se-local{ display:none; }
   .studio-cell.dragover{ background:rgba(139,92,246,0.22); box-shadow:inset 0 0 0 1px rgba(139,92,246,0.5); }
   .studio-event .se-tipo{ font-weight:700; font-size:10.5px; letter-spacing:0.2px; }
   .studio-event .se-local{ font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -699,6 +722,17 @@
   .type-pill.sel{ color:#fff; border-color:transparent; box-shadow:0 6px 16px -6px rgba(0,0,0,0.6);}
 
   /* ---------- BANCO DE PROFS ---------- */
+  .cal-resumo{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .cal-resumo span{ font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:20px; background:var(--w080); border:1px solid var(--panel-border); color:var(--ink-soft); }
+  .check-add-opts{ display:flex; flex-wrap:wrap; gap:22px; margin-top:14px; }
+  .chip-post-dot{ width:15px; height:15px; min-width:15px; border-radius:50%; border:2px solid rgba(255,255,255,0.85); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; margin-right:2px; }
+  .chip-post-dot.on{ background:rgba(255,255,255,0.95); }
+  .chip-post-dot svg{ width:9px; height:9px; stroke:#111; stroke-width:3.4; }
+  .pp-row{ display:flex; align-items:center; gap:9px; padding:8px 2px; border-bottom:1px solid var(--panel-border); }
+  .pp-row:last-child{ border-bottom:none; }
+  .pp-row.done .pp-tema{ opacity:.5; text-decoration:line-through; }
+  .pp-tema{ flex:1; font-size:12.5px; font-weight:500; cursor:pointer; }
+  .ci-tag{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; color:#fff; margin-left:6px; text-transform:uppercase; letter-spacing:.4px; }
   .profbank-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:16px; max-height:calc(100vh - 210px); overflow-y:auto; padding:2px 4px 4px 2px; align-content:start; }
   .profbank-card{
     background:var(--panel); border:1px solid var(--panel-border); border-radius:16px; padding:18px;
@@ -1288,6 +1322,10 @@
     .dash-cols{grid-template-columns:1fr;}
     .kpi-grid{grid-template-columns:repeat(2,1fr);}
     .kanban-board{grid-template-columns:1fr;}
+    .studio-wrap{ padding:10px; }
+    .studio-scroll{ max-height:70vh; }
+    .studio-grid{ grid-template-columns:52px repeat(7, minmax(112px, 1fr)); min-width:836px; }
+    .studio-hour-label{ font-size:9.5px; padding-right:6px; }
     .team-grid{grid-template-columns:1fr 1fr;}
     .outros-cols{grid-template-columns:1fr;}
     .profbank-grid{grid-template-columns:1fr 1fr;}
@@ -1356,10 +1394,10 @@
         Cronograma de Posts
         <span class="nav-badge" id="badge-posts">0</span>
       </div>
-      <div class="nav-item" data-view="profs">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 2h6v3H9z"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="16" y2="15"></line><line x1="8" y1="19" x2="12" y2="19"></line></svg>
-        Gravações por Prof
-        <span class="nav-badge" id="badge-profs">0</span>
+      <div class="nav-item" data-view="postsprof">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="17" y1="4" x2="23" y2="4"></line><line x1="17" y1="8" x2="23" y2="8"></line><line x1="17" y1="12" x2="21" y2="12"></line></svg>
+        Posts por Prof
+        <span class="nav-badge" id="badge-postsprof">0</span>
       </div>
       <div class="nav-item" data-view="studio">
         <svg class="icon" viewBox="0 0 24 24"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18"></path><path d="M6 22h12"></path><line x1="9" y1="8" x2="9" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="9" y1="12" x2="9" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="9" y1="16" x2="9" y2="16"></line><line x1="14" y1="16" x2="14" y2="16"></line></svg>
@@ -1502,7 +1540,8 @@
       <div class="topbar">
         <div class="title-block">
           <h1>Cronograma de Posts</h1>
-          <p>Clique em um dia para agendar horário, formato e tema. Arraste um post pra mudar o dia sem precisar abrir o card.</p>
+          <p>Visão geral do mês: clique na bolinha do post pra marcar se já foi postado. O texto do post não é escrito aqui.</p>
+          <div id="calResumo" class="cal-resumo"></div>
         </div>
         <div style="display:flex; align-items:center; gap:14px;">
           <div class="filter-bar">
@@ -1526,72 +1565,24 @@
       </div>
     </section>
 
-    <!-- VIEW: GRAVAÇÕES POR PROF -->
-    <section class="view" id="view-profs">
+    <!-- VIEW: POSTS POR PROF -->
+    <section class="view" id="view-postsprof">
       <div class="topbar">
         <div class="title-block">
-          <h1>Gravações por Prof</h1>
-          <p>Tudo o que cada prof tem pra gravar, organizado tipo planilha — marque o check quando gravar.</p>
+          <h1>Posts por Prof</h1>
+          <p>Quantos posts cada professor tem no cronograma e quais já foram postados.</p>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div class="filter-bar">
-            <select class="filter-select" id="filterProfsProf"><option value="">Todos os profs</option></select>
-            <select class="filter-select" id="filterProfsStatus">
-              <option value="">Todos os status</option>
-              <option value="a-gravar">A gravar</option>
-              <option value="concluido">Concluído</option>
-            </select>
-          </div>
-          <button class="btn btn-ghost" id="btnExportProfs">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Exportar PDF
-          </button>
-          <button class="btn btn-primary" id="btnNewProfCard"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Nova gravação</button>
+        <div class="filter-bar">
+          <select class="filter-select" id="filterPPProf"><option value="">Todos os profs</option></select>
+          <select class="filter-select" id="filterPPStatus">
+            <option value="">Todos os posts</option>
+            <option value="pendente">Ainda não postados</option>
+            <option value="postado">Já postados</option>
+          </select>
         </div>
       </div>
-
-      <div class="solic-wrap" id="solicWrap">
-        <div class="solic-head">
-          <h3>
-            <svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            Solicitações <span class="col-count" id="solicCount">0</span>
-          </h3>
-          <div class="spacer"></div>
-          <div class="filter-bar">
-            <select class="filter-select" id="filterSolicStatus">
-              <option value="pendente">Pendentes</option>
-              <option value="aceita">Aceitas</option>
-              <option value="recusada">Recusadas</option>
-              <option value="">Todas</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" id="btnNewSolic"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Nova solicitação</button>
-        </div>
-        <div class="solic-list" id="solicList"></div>
-      </div>
-
-      <div class="print-header" id="profPrintHeader">
-        <h2>Gravações por Prof — Revisão Nocaute</h2>
-        <p id="profPrintSubtitle"></p>
-      </div>
-
-      <div class="prof-table-wrap">
-        <table class="prof-table">
-          <thead>
-            <tr>
-              <th style="width:36px;"></th>
-              <th>Tema</th>
-              <th>Ref.</th>
-              <th>Quem</th>
-              <th>Formato</th>
-              <th>Data de postagem</th>
-              <th>Onde será gravado</th>
-              <th style="width:36px;"></th>
-            </tr>
-          </thead>
-          <tbody id="profTableBody"></tbody>
-        </table>
-      </div>
+      <div class="check-grid" id="ppGrid"></div>
+      <div class="dash-empty" id="ppEmpty" style="display:none;">Nenhum post com professor definido ainda.</div>
     </section>
 
     <!-- VIEW: STUDIO SCHEDULE -->
@@ -1625,24 +1616,65 @@
     <section class="view" id="view-checklist">
       <div class="topbar">
         <div class="title-block">
-          <h1>Checklist de Gravação</h1>
-          <p>As obrigatórias vêm direto do quadro de Gravações. As não obrigatórias você adiciona só aqui.</p>
+          <h1>Checklist de Gravação e Fotos</h1>
+          <p>Tudo o que precisa ser gravado ou fotografado, por professor — marque o check quando estiver feito.</p>
         </div>
         <div class="filter-bar">
           <select class="filter-select" id="filterChecklistProf"><option value="">Todos os profs</option></select>
+          <select class="filter-select" id="filterChecklistTipo">
+            <option value="">Vídeo e foto</option>
+            <option value="video">Só vídeo</option>
+            <option value="foto">Só foto</option>
+          </select>
         </div>
       </div>
 
       <div class="dash-col" style="margin-bottom:18px;">
         <div class="dash-col-head">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-          Adicionar não obrigatória <span class="col-count" id="checklistExtraCount">0</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 6h11"></path><path d="M9 12h11"></path><path d="M9 18h11"></path><path d="M4 6l1 1 2-2"></path><path d="M4 12l1 1 2-2"></path><path d="M4 18l1 1 2-2"></path></svg>
+          Adicionar ao checklist <span class="col-count" id="checklistExtraCount">0</span>
         </div>
         <div class="todo-add-row">
-          <input type="text" id="checklistExtraTema" placeholder="O que você gostaria de gravar?" list="profNamesList">
-          <input type="text" id="checklistExtraProf" placeholder="Prof (opcional)" style="max-width:200px; background:var(--w055); border:1px solid var(--w140); color:var(--ink); font-family:inherit; font-size:13.5px; padding:12px 14px; border-radius:12px; outline:none;" list="profNamesList">
+          <input type="text" id="checklistExtraTema" placeholder="O que precisa ser gravado ou fotografado?">
+          <input type="text" id="checklistExtraProf" placeholder="Prof" style="max-width:200px; background:var(--w055); border:1px solid var(--w140); color:var(--ink); font-family:inherit; font-size:13.5px; padding:12px 14px; border-radius:12px; outline:none;" list="profNamesList">
           <button class="btn btn-primary" id="btnAddChecklistExtra"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Adicionar</button>
         </div>
+        <div class="check-add-opts">
+          <div>
+            <div class="mini-label">Tipo</div>
+            <div class="format-picker" id="checkTipoPicker">
+              <div class="opt-pill sel" data-ctipo="video"><span class="d" style="background:var(--pink)"></span>Vídeo</div>
+              <div class="opt-pill" data-ctipo="foto"><span class="d" style="background:var(--sky)"></span>Foto</div>
+            </div>
+          </div>
+          <div>
+            <div class="mini-label">É obrigatória?</div>
+            <div class="format-picker" id="checkObrigPicker">
+              <div class="opt-pill sel" data-cobr="1"><span class="d" style="background:var(--emerald)"></span>Obrigatória</div>
+              <div class="opt-pill" data-cobr="0"><span class="d" style="background:var(--amber)"></span>Não obrigatória</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="solic-wrap" id="solicWrap">
+        <div class="solic-head">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Solicitações <span class="col-count" id="solicCount">0</span>
+          </h3>
+          <div class="spacer"></div>
+          <div class="filter-bar">
+            <select class="filter-select" id="filterSolicStatus">
+              <option value="pendente">Pendentes</option>
+              <option value="aceita">Aceitas</option>
+              <option value="recusada">Recusadas</option>
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btnNewSolic"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Nova solicitação</button>
+        </div>
+        <div class="solic-list" id="solicList"></div>
       </div>
 
       <div class="check-grid" id="checkGrid"></div>
@@ -1940,10 +1972,6 @@
       <label>Professor</label>
       <select class="status-select" id="postProfessor"></select>
     </div>
-    <div class="field">
-      <label id="postTextoLabel">Texto / copy do post</label>
-      <textarea id="postTexto" placeholder="Cole aqui o texto que vai no post..."></textarea>
-    </div>
     <div class="field" id="postArteRow">
       <label>Arte pronta (link)</label>
       <input type="text" id="postArte" placeholder="Link do Drive, Canva, Figma...">
@@ -2068,11 +2096,11 @@
     <div class="row2">
       <div class="field">
         <label>De que horas</label>
-        <select id="studioStart"></select>
+        <input type="time" id="studioStart" step="60" value="09:00">
       </div>
       <div class="field">
         <label>Até que horas</label>
-        <select id="studioEnd"></select>
+        <input type="time" id="studioEnd" step="60" value="10:00">
       </div>
     </div>
     <div class="field">
@@ -2259,12 +2287,32 @@
       <div class="chips-box" id="professorMaterias"></div>
     </div>
     <div class="field">
-      <label>Link dos slides</label>
-      <input type="text" id="professorSlides" placeholder="Link da pasta ou apresentação">
+      <label>Slides</label>
+      <input type="text" id="professorSlides" placeholder="Link da pasta ou apresentação (opcional)">
+      <div class="file-drop" id="profSlidesDrop" style="margin-top:9px;">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Anexe os slides (PDF, imagem ou vídeo)
+      </div>
+      <input type="file" id="profSlidesFile" accept="image/*,video/*,application/pdf" multiple style="display:none;">
+      <div class="anexo-strip" id="profSlidesAnexos" style="margin-top:10px;"></div>
     </div>
     <div class="field">
-      <label>Link das dicas</label>
-      <input type="text" id="professorDicas" placeholder="Link do material de dicas">
+      <label>Dicas</label>
+      <input type="text" id="professorDicas" placeholder="Link do material de dicas (opcional)">
+      <div class="file-drop" id="profDicasDrop" style="margin-top:9px;">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Anexe o material de dicas
+      </div>
+      <input type="file" id="profDicasFile" accept="image/*,video/*,application/pdf" multiple style="display:none;">
+      <div class="anexo-strip" id="profDicasAnexos" style="margin-top:10px;"></div>
+    </div>
+    <div class="field">
+      <label>To-do list do prof</label>
+      <div class="todo-add-row">
+        <input type="text" id="profTodoInput" placeholder="Ex: gravar abertura do módulo 3">
+        <button class="btn btn-ghost" id="btnAddProfTodo" style="white-space:nowrap;">Adicionar</button>
+      </div>
+      <div id="profTodoList" style="margin-top:10px;"></div>
     </div>
     <div class="field">
       <label>Link das questões</label>
@@ -2441,7 +2489,7 @@
     <div class="field">
       <label>Encaminhar para qual aba?</label>
       <select class="status-select" id="solicDestino">
-        <option value="profs">Gravações por Prof</option>
+        <option value="profs">Checklist — obrigatória</option>
         <option value="calendar">Cronograma de Posts</option>
         <option value="studio">Cronograma de Estúdio</option>
         <option value="checklist">Checklist de Gravação</option>
@@ -2677,6 +2725,14 @@
   let filterProfsProf = '';
   let filterProfsStatus = '';
   let filterOutrosResp = '';
+  let filterPPProf = '';
+  let filterPPStatus = '';
+  let filterChecklistTipo = '';
+  let selectedCheckTipo = 'video';
+  let selectedCheckObrig = true;
+  let profAnexosSlides = [];
+  let profAnexosDicas = [];
+  let profTodos = [];
 
   function getWeekStart(d){
     const nd = new Date(d);
@@ -3038,9 +3094,11 @@
     },
     professores: {
       to:   p => ({ id:p.id, nome:p.nome||null, caracteristicas:p.caracteristicas||null, arquivos:p.arquivos||null,
-                    materias:(p.materias||[]).join(', ') || null, link_slides:p.slides||null, link_dicas:p.dicas||null, link_questoes:p.questoes||null }),
+                    materias:(p.materias||[]).join(', ') || null, link_slides:p.slides||null, link_dicas:p.dicas||null, link_questoes:p.questoes||null,
+                    slides_anexos:packAnexos(p.slidesAnexos), dicas_anexos:packAnexos(p.dicasAnexos), todos:packAnexos(p.todos) }),
       from: r => ({ id:r.id, nome:r.nome||'', caracteristicas:r.caracteristicas||'', arquivos:r.arquivos||'',
-                    materias:listaDeTextos(r.materias), slides:r.link_slides||'', dicas:r.link_dicas||'', questoes:r.link_questoes||'' })
+                    materias:listaDeTextos(r.materias), slides:r.link_slides||'', dicas:r.link_dicas||'', questoes:r.link_questoes||'',
+                    slidesAnexos:unpackAnexos(r.slides_anexos), dicasAnexos:unpackAnexos(r.dicas_anexos), todos:unpackAnexos(r.todos) })
     },
     outros: {
       to:   o => ({ id:o.id, tarefa:o.tarefa||null, responsavel:o.responsavel||null, link:o.link||null, status:o.status||'pendente', projeto_id:o.projetoId||null, anexos:packAnexos(o.anexos) }),
@@ -3071,8 +3129,8 @@
       from: r => ({ id:r.id, titulo:r.titulo||'', prof:r.prof||'', texto:r.texto||'', link:r.link||'', modo:r.modo || (r.link && !r.texto ? 'link' : 'texto'), status:r.status||'rascunho' })
     },
     checklist_extra: {
-      to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, done:!!c.done }),
-      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', done:!!r.done })
+      to:   c => ({ id:c.id, tema:c.tema||null, prof:c.prof||null, done:!!c.done, tipo:c.tipo||'video', obrigatoria:!!c.obrigatoria }),
+      from: r => ({ id:r.id, tema:r.tema||'', prof:r.prof||'', done:!!r.done, tipo:r.tipo||'video', obrigatoria:!!r.obrigatoria })
     }
   };
 
@@ -3145,9 +3203,9 @@
       }
     });
     renderCalendar();
-    renderBoard();
     renderStudio();
     renderChecklist();
+    renderPostsPorProf();
     renderKanban();
     renderTeam();
     renderEvents();
@@ -3233,7 +3291,7 @@
     $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length + checklistExtra.filter(c=>!c.done).length;
     $('#badge-kanban').textContent = posts.filter(p=> !FEITO(p.status)).length;
     $('#badge-team').textContent = people.length;
-    $('#badge-profs').textContent = distinctProfs().filter(prof=> cards.some(c=> c.status==='a-gravar' && profsDoCard(c).includes(prof))).length;
+    $('#badge-postsprof').textContent = posts.filter(p=> p.professor && p.professor.trim() && p.status!=='postado').length;
     const todayStr0 = fmtDateFromObj(new Date());
     $('#badge-events').textContent = eventos.filter(ev=> ev.date >= todayStr0).length;
     $('#badge-outros').textContent = outros.filter(o=> o.status !== 'concluido').length;
@@ -3246,7 +3304,7 @@
       b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     }
     refreshFilterOptions();
-    renderProfs();
+    renderPostsPorProf();
     renderOutros();
     renderMinhas();
     renderProfBank();
@@ -3283,6 +3341,7 @@
     fillSelect('#filterProfsProf', profNames, 'Todos os profs', filterProfsProf);
     fillSelect('#filterRoteirosProf', profNames, 'Todos os profs', filterRoteirosProf);
     fillSelect('#filterChecklistProf', profNames, 'Todos os profs', filterChecklistProf);
+    fillSelect('#filterPPProf', profNames, 'Todos os profs', filterPPProf);
     fillSelect('#filterCalResp', respNames, 'Todos os responsáveis', filterCalResp);
     fillSelect('#filterOutrosResp', respNames, 'Todos os responsáveis', filterOutrosResp);
     ['#solicSolicitante'].forEach(sel=>{
@@ -3333,8 +3392,9 @@
   $('#filterStudioProf').addEventListener('change', (e)=>{ filterStudioProf = e.target.value; renderStudio(); });
   $('#filterCalResp').addEventListener('change', (e)=>{ filterCalResp = e.target.value; renderCalendar(); });
   $('#filterKanbanResp').addEventListener('change', (e)=>{ filterKanbanResp = e.target.value; renderKanban(); });
-  $('#filterProfsProf').addEventListener('change', (e)=>{ filterProfsProf = e.target.value; renderProfs(); });
-  $('#filterProfsStatus').addEventListener('change', (e)=>{ filterProfsStatus = e.target.value; renderProfs(); });
+  $('#filterPPProf').addEventListener('change', (e)=>{ filterPPProf = e.target.value; renderPostsPorProf(); });
+  $('#filterPPStatus').addEventListener('change', (e)=>{ filterPPStatus = e.target.value; renderPostsPorProf(); });
+  $('#filterChecklistTipo').addEventListener('change', (e)=>{ filterChecklistTipo = e.target.value; renderChecklist(); });
   $('#filterRoteirosProf').addEventListener('change', (e)=>{ filterRoteirosProf = e.target.value; renderRoteiros(); });
   $('#filterRoteirosStatus').addEventListener('change', (e)=>{ filterRoteirosStatus = e.target.value; renderRoteiros(); });
   $('#filterChecklistProf').addEventListener('change', (e)=>{ filterChecklistProf = e.target.value; renderChecklist(); });
@@ -3450,7 +3510,21 @@
           chip.draggable = true;
           chip.dataset.postId = p.id;
           const suf = fmtSuffix(p);
-          chip.innerHTML = '<span>'+p.horario+'</span><span class="t">'+escapeHtml(p.tema||p.formato)+(suf?' <span style="opacity:.7;font-weight:600">· '+suf+'</span>':'')+'</span>';
+          const jaPostado = (p.status === 'postado');
+          chip.innerHTML =
+            '<span class="chip-post-dot'+(jaPostado?' on':'')+'" title="'+(jaPostado?'Postado — clique pra desmarcar':'Ainda não postado — clique pra marcar')+'">'+
+              (jaPostado ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '')+
+            '</span>'+
+            '<span>'+p.horario+'</span><span class="t">'+escapeHtml(p.tema||p.formato)+(suf?' <span style="opacity:.7;font-weight:600">· '+suf+'</span>':'')+'</span>';
+          chip.querySelector('.chip-post-dot').addEventListener('click', async (e)=>{
+            e.stopPropagation();
+            if(currentUser && currentUser.permissao==='Visualizador') return;
+            p.status = jaPostado ? 'pronto' : 'postado';
+            await savePosts();
+            await sincronizaCardDoPost(p);
+            renderCalendar(); renderKanban(); updateBadges();
+            toast(ICONS.check + (p.status==='postado' ? ' Marcado como postado' : ' Voltou pra pronto pra postar'));
+          });
           chip.addEventListener('click', (e)=>{ e.stopPropagation(); openPostModal(dateStr, p.id); });
           chip.addEventListener('dragstart', (e)=>{
             draggedPostId = p.id;
@@ -3529,6 +3603,18 @@
 
       grid.appendChild(cell);
     }
+
+    const resumo = $('#calResumo');
+    if(resumo){
+      const mesStr = y+'-'+String(m+1).padStart(2,'0');
+      const doMes = posts.filter(p=> p.date && p.date.startsWith(mesStr) && (!filterCalResp || p.responsavel===filterCalResp));
+      const nPost = doMes.filter(p=> p.status==='postado').length;
+      const nPend = doMes.length - nPost;
+      resumo.innerHTML =
+        '<span>'+doMes.length+(doMes.length===1?' post no mês':' posts no mês')+'</span>'+
+        '<span>'+nPost+(nPost===1?' postado':' postados')+'</span>'+
+        '<span>'+nPend+(nPend===1?' ainda não postado':' ainda não postados')+'</span>';
+    }
   }
 
   function escapeHtml(str){
@@ -3562,7 +3648,6 @@
       $('#postModalTitle').textContent = 'Editar post';
       $('#postHorario').value = p.horario;
       $('#postTema').value = p.tema || '';
-      $('#postTexto').value = p.texto || '';
       $('#postArte').value = p.arte || '';
       $('#postReferencia').value = p.referencia || '';
       selectCarrossel(p.carrosselTipo || '');
@@ -3579,7 +3664,6 @@
       $('#postModalTitle').textContent = 'Novo post';
       $('#postHorario').value = '09:00';
       $('#postTema').value = '';
-      $('#postTexto').value = '';
       $('#postArte').value = '';
       $('#postReferencia').value = '';
       selectCarrossel('');
@@ -3634,7 +3718,6 @@
     $('#postArteRow').style.display = isStory ? 'none' : 'block';
     $('#postRefRow').style.display  = isStory ? 'none' : 'block';
     $('#postTemaLabel').textContent  = isStory ? 'Título' : 'Tema';
-    $('#postTextoLabel').textContent = isStory ? 'Descrição' : 'Texto / copy do post';
     $('#postTema').placeholder = isStory ? 'Ex: Bastidores da gravação de hoje' : 'Ex: Como bater meta de caixa em 30 dias';
     if(isCarr && !selectedCarrossel) selectCarrossel('nativo');
     if(isReels && !selectedReels) selectReels('nativo');
@@ -3675,7 +3758,7 @@
       post = posts.find(p=>p.id===editingPostId);
       post.horario = horario; post.formato = selectedFmt; post.tema = tema; post.responsavel = responsavel;
       post.status = $('#postStatus').value || 'producao';
-      post.texto = $('#postTexto').value; post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
+      post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
       post.professor = $('#postProfessor').value;
       post.carrosselTipo = (selectedFmt==='Carrossel') ? selectedCarrossel : '';
       post.reelsTipo = (selectedFmt==='Reels') ? selectedReels : '';
@@ -3683,7 +3766,7 @@
       post.anexos = postAnexos.slice();
     } else {
       post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status: ($('#postStatus').value || 'producao'),
-               texto: $('#postTexto').value, arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
+               texto: '', arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
                professor: $('#postProfessor').value,
                carrosselTipo: (selectedFmt==='Carrossel') ? selectedCarrossel : '',
                reelsTipo: (selectedFmt==='Reels') ? selectedReels : '',
@@ -3713,7 +3796,7 @@
         linked = { id: uid(), tema, prof: post.professor || '', profs: post.professor ? [post.professor] : [], ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
         cards.push(linked);
         updateBadges(true);
-        toast(ICONS.film + ' Adicionado às Gravações e a Gravações por Prof');
+        toast(ICONS.film + ' Entrou como obrigatória no Checklist de Gravação');
       }
       await saveCards();
       renderBoard();
@@ -3811,16 +3894,21 @@
   }
   function hourLabel(h){ return String(h).padStart(2,'0')+':00'; }
 
-  function populateHourSelects(){
-    const startSel = $('#studioStart');
-    const endSel = $('#studioEnd');
-    startSel.innerHTML = ''; endSel.innerHTML = '';
-    for(let h=0; h<24; h++){
-      const opt1 = document.createElement('option'); opt1.value = hourLabel(h); opt1.textContent = hourLabel(h);
-      startSel.appendChild(opt1);
-      const opt2 = document.createElement('option'); opt2.value = hourLabel(h+1<=24?h+1:24); opt2.textContent = h+1<24 ? hourLabel(h+1) : '24:00';
-      endSel.appendChild(opt2);
-    }
+  // ---- horários com minuto quebrado (16:30, 17:20...) ----
+  // tudo por dentro vira minutos desde a meia-noite; na tela volta pra HH:MM
+  function toMin(hhmm){
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '').trim());
+    if(!m) return 0;
+    return Math.min(1440, Math.max(0, parseInt(m[1],10)*60 + parseInt(m[2],10)));
+  }
+  function minLabel(min){
+    const t = Math.min(1440, Math.max(0, Math.round(min)));
+    return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0');
+  }
+  // <input type="time"> não aceita 24:00; na hora de mostrar vira 23:59
+  function paraCampoHora(hhmm){
+    const v = String(hhmm || '').trim();
+    return (v === '24:00' || toMin(v) >= 1440) ? '23:59' : minLabel(toMin(v));
   }
 
   function renderStudio(){
@@ -3872,7 +3960,13 @@
         cell.style.gridColumn = (dayIdx+2);
         cell.style.gridRow = (h+2);
         const cellDate = fmtDateFromObj(d), cellHour = h;
-        cell.addEventListener('click', ()=> openStudioModal(cellDate, hourLabel(cellHour), null));
+        // clicar no meio da faixa já abre no quarto de hora correspondente (:00, :15, :30, :45)
+        cell.addEventListener('click', (e)=>{
+          const r = cell.getBoundingClientRect();
+          const frac = (r.height > 0 && typeof e.clientY === 'number') ? (e.clientY - r.top) / r.height : 0;
+          const quarto = Math.min(3, Math.max(0, Math.floor(frac * 4)));
+          openStudioModal(cellDate, minLabel(cellHour*60 + quarto*15), null);
+        });
         cell.addEventListener('dragover', (e)=>{ if(draggedStudioId){ e.preventDefault(); cell.classList.add('dragover'); } });
         cell.addEventListener('dragleave', ()=> cell.classList.remove('dragover'));
         cell.addEventListener('drop', async (e)=>{
@@ -3880,10 +3974,13 @@
           if(!draggedStudioId) return;
           const ev = studioEvents.find(x=>x.id===draggedStudioId);
           if(!ev) return;
-          const dur = Math.max(1, parseInt(ev.end) - parseInt(ev.start));
+          const iniMin = toMin(ev.start);
+          const durMin = Math.max(15, toMin(ev.end) - iniMin);
+          let novoIni = cellHour*60 + (iniMin % 60);   // mantém o minuto quebrado do evento
+          if(novoIni + durMin > 1440) novoIni = 1440 - durMin;
           ev.date = cellDate;
-          ev.start = hourLabel(cellHour);
-          ev.end = hourLabel(Math.min(cellHour + dur, 24));
+          ev.start = minLabel(novoIni);
+          ev.end = minLabel(novoIni + durMin);
           draggedStudioId = null;
           await saveStudioEvents();
           renderStudio();
@@ -3904,7 +4001,7 @@
       const dstr = fmtDateFromObj(d);
       const dayEvs = studioEvents
         .filter(ev=> ev.date===dstr && (!filterStudioProf || profsDoEvento(ev).includes(filterStudioProf)))
-        .map(ev=>({ ev, startH: parseInt(ev.start), endH: Math.max(parseInt(ev.start)+1, parseInt(ev.end)) }))
+        .map(ev=>({ ev, startH: toMin(ev.start), endH: Math.max(toMin(ev.start)+15, toMin(ev.end)) }))
         .sort((a,b)=> a.startH - b.startH || a.endH - b.endH);
 
       // agrupa em clusters de sobreposição e distribui em faixas (colunas)
@@ -3934,8 +4031,9 @@
         const { lane, lanes } = layout.get(ev.id) || { lane:0, lanes:1 };
         const el = document.createElement('div');
         el.className = 'studio-event';
-        el.style.top = (startH*HH + 2) + 'px';
-        el.style.height = ((endH-startH)*HH - 4) + 'px';
+        el.style.top = (startH/60*HH + 2) + 'px';
+        el.style.height = Math.max(22, (endH-startH)/60*HH - 4) + 'px';
+        el.classList.toggle('curto', (endH-startH) < 45);
         el.style.left = 'calc(' + (lane*100/lanes) + '% + 3px)';
         el.style.width = 'calc(' + (100/lanes) + '% - 6px)';
         el.style.background = studioColor(ev.local);
@@ -3962,11 +4060,21 @@
       grid.appendChild(col);
     });
 
-    // auto-scroll to business hours on first render
+    // na primeira vez, cai no horário comercial e na coluna de hoje
     if(!renderStudio._scrolled){
       renderStudio._scrolled = true;
       const scrollBox = document.querySelector('.studio-scroll');
-      if(scrollBox) scrollBox.scrollTop = 7 * 52;
+      if(scrollBox){
+        scrollBox.scrollTop = 7 * 52;
+        const hojeIdx = weekDates.findIndex(d=> fmtDateFromObj(d) === todayStr);
+        if(hojeIdx > -1){
+          const colunaHoje = grid.querySelector('.studio-daycol-head:nth-of-type(' + (hojeIdx+1) + ')');
+          const larguraCol = colunaHoje ? colunaHoje.offsetWidth : 150;
+          const rotulo = 64;
+          const alvo = rotulo + hojeIdx*larguraCol - Math.max(0, (scrollBox.clientWidth - rotulo - larguraCol) / 2);
+          scrollBox.scrollLeft = Math.max(0, alvo);
+        }
+      }
     }
   }
 
@@ -4006,8 +4114,8 @@
       const ev = studioEvents.find(x=>x.id===eventId);
       $('#studioModalTitle').textContent = 'Editar evento';
       $('#studioData').value = ev.date;
-      $('#studioStart').value = ev.start;
-      $('#studioEnd').value = ev.end;
+      $('#studioStart').value = paraCampoHora(ev.start);
+      $('#studioEnd').value = paraCampoHora(ev.end);
       $('#studioTema').value = ev.tema || '';
       selectedStudioProfs = profsDoEvento(ev).slice();
       $('#studioDescricao').value = ev.descricao || '';
@@ -4017,9 +4125,8 @@
     } else {
       $('#studioModalTitle').textContent = 'Novo evento';
       $('#studioData').value = dateStr;
-      $('#studioStart').value = startHour || '09:00';
-      const startH = parseInt((startHour||'09:00').split(':')[0]);
-      $('#studioEnd').value = hourLabel(Math.min(startH+1, 24));
+      $('#studioStart').value = paraCampoHora(startHour || '09:00');
+      $('#studioEnd').value = minLabel(Math.min(toMin(startHour || '09:00') + 60, 1439));
       $('#studioTema').value = '';
       selectedStudioProfs = [];
       $('#studioDescricao').value = '';
@@ -4037,7 +4144,8 @@
     const end = $('#studioEnd').value;
     const date = $('#studioData').value || editingStudioDate;
     if(!date){ toast(ICONS.alert + ' Escolha uma data'); return; }
-    if(end <= start){ toast(ICONS.alert + ' O horário final precisa ser depois do inicial'); return; }
+    if(!start || !end){ toast(ICONS.alert + ' Preencha os dois horários'); return; }
+    if(toMin(end) <= toMin(start)){ toast(ICONS.alert + ' O horário final precisa ser depois do inicial'); return; }
     const tema = $('#studioTema').value.trim();
     if(!tema){ toast(ICONS.alert + ' Escreva um tema para o evento'); return; }
     const professores_ = selectedStudioProfs.slice();
@@ -4064,8 +4172,6 @@
     updateBadges();
     closeStudioModal();
   });
-
-  populateHourSelects();
 
   // ---------- CARD MODAL ----------
   function selectCardFmt(fmt){
@@ -4390,7 +4496,7 @@
 
   // ---------- SOLICITAÇÕES ----------
   const DESTINOS = {
-    profs:     'Gravações por Prof',
+    profs:     'Checklist — obrigatória',
     calendar:  'Cronograma de Posts',
     studio:    'Cronograma de Estúdio',
     checklist: 'Checklist de Gravação',
@@ -4502,10 +4608,10 @@
       cards.push({ id: uid(), tema: titulo, prof: sx.prof || '', profs: sx.prof ? [sx.prof] : [], ref:'', copy: sx.descricao || '',
                    status:'a-gravar', formato:'Reels', local:'Em Aberto', dataPostagem:'',
                    fromPostId:null, etapa:'producao', solicId: sx.id });
-      await saveCards(); renderBoard(); renderProfs();
-      msg = 'Criada uma gravação em Gravações por Prof';
+      await saveCards(); renderChecklist();
+      msg = 'Criada uma obrigatória no Checklist de Gravação';
     } else if(destino === 'checklist'){
-      checklistExtra.push({ id: uid(), tema: titulo, prof: sx.prof || '', done:false });
+      checklistExtra.push({ id: uid(), tema: titulo, prof: sx.prof || '', tipo:'video', obrigatoria:false, done:false });
       await saveChecklistExtra(); renderChecklist();
       msg = 'Adicionada ao Checklist de Gravação';
     } else if(destino === 'roteiros'){
@@ -4599,110 +4705,9 @@
     await saveSolicitacoes(); renderSolicitacoes(); closeSolicModal();
   });
 
-  function renderProfs(){
-    const body = $('#profTableBody');
-    if(!body) return;
-    body.innerHTML = '';
-
-    const filtered = cards.filter(c=>{
-      const nomes = profsDoCard(c);
-      if(filterProfsProf && !nomes.includes(filterProfsProf)) return false;
-      if(filterProfsStatus && c.status !== filterProfsStatus) return false;
-      return true;
-    });
-
-    const sub = $('#profPrintSubtitle');
-    if(sub){
-      const parts = [];
-      parts.push(filterProfsProf ? 'Prof: '+filterProfsProf : 'Todos os profs');
-      if(filterProfsStatus) parts.push(filterProfsStatus==='a-gravar' ? 'A gravar' : 'Concluído');
-      parts.push(new Date().toLocaleDateString('pt-BR'));
-      sub.textContent = parts.join(' · ');
-    }
-
-    const profSet = new Set();
-    filtered.forEach(c=>{
-      const nomes = profsDoCard(c);
-      if(nomes.length) nomes.forEach(n=> profSet.add(n));
-      else profSet.add('Sem responsável');
-    });
-    const profs = Array.from(profSet).sort((a,b)=>{
-      if(a==='Sem responsável') return 1;
-      if(b==='Sem responsável') return -1;
-      return a.localeCompare(b);
-    });
-
-    if(filtered.length===0){
-      body.innerHTML = '<tr><td colspan="8" class="dash-empty" style="text-align:center;">'+
-        (cards.length===0 ? 'Nenhuma gravação cadastrada ainda. Clique em "Nova gravação" pra começar.' : 'Nenhuma gravação com esses filtros.')+
-        '</td></tr>';
-      return;
-    }
-
-    profs.forEach(prof=>{
-      const items = filtered.filter(c=>{
-        const nomes = profsDoCard(c);
-        return nomes.length ? nomes.includes(prof) : (prof === 'Sem responsável');
-      });
-      const pendentes = items.filter(c=>c.status==='a-gravar').length;
-
-      const groupRow = document.createElement('tr');
-      groupRow.className = 'prof-group-row';
-      groupRow.innerHTML = '<td colspan="8">'+ICONS.user+' <strong>'+escapeHtml(prof)+'</strong> — '+pendentes+' a gravar de '+items.length+'</td>';
-      body.appendChild(groupRow);
-
-      items.forEach(c=>{
-        const row = document.createElement('tr');
-        row.className = 'prof-row' + (c.status==='concluido' ? ' done' : '');
-        const refCell = c.ref
-          ? (/^https?:\/\//.test(c.ref.trim())
-              ? '<a href="'+escapeHtml(c.ref)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+escapeHtml(c.ref)+'</a>'
-              : escapeHtml(c.ref))
-          : '';
-        row.innerHTML =
-          '<td class="prof-td-check"><div class="todo-check'+(c.status==='concluido'?' checked':'')+'" data-id="'+c.id+'">'+(c.status==='concluido' ? ICONS.check : '')+'</div></td>'+
-          '<td>'+escapeHtml(c.tema)+'</td>'+
-          '<td class="prof-td-ref">'+refCell+'</td>'+
-          '<td>'+escapeHtml(textoProfs(profsDoCard(c)))+'</td>'+
-          '<td>'+(c.formato ? '<span class="kanban-fmt-tag" style="background:'+(FMT_HEX[c.formato]||'#8b5cf6')+'">'+escapeHtml(c.formato)+'</span>' : '')+'</td>'+
-          '<td>'+(c.dataPostagem ? formatDatePt(c.dataPostagem) : '')+'</td>'+
-          '<td>'+escapeHtml(c.local||'')+'</td>'+
-          '<td class="prof-td-del"><button class="todo-del" data-id="'+c.id+'">'+ICONS.trash+'</button></td>';
-        row.querySelector('.todo-check').addEventListener('click', async (e)=>{
-          e.stopPropagation();
-          c.status = c.status==='concluido' ? 'a-gravar' : 'concluido';
-          await saveCards();
-          renderBoard();
-          renderProfs();
-          updateBadges();
-        });
-        row.querySelector('.todo-del').addEventListener('click', async (e)=>{
-          e.stopPropagation();
-          cards = cards.filter(x=>x.id!==c.id);
-          await saveCards();
-          renderBoard();
-          renderProfs();
-          updateBadges();
-        });
-        row.addEventListener('click', (e)=>{
-          if(e.target.closest('.todo-check') || e.target.closest('.todo-del') || e.target.closest('a')) return;
-          openCardModal(c.id);
-        });
-        body.appendChild(row);
-      });
-    });
-  }
-
-  $('#btnNewProfCard').addEventListener('click', ()=> openCardModal(null));
-
-  $('#btnExportProfs').addEventListener('click', ()=>{
-    const view = $('#view-profs');
-    view.classList.add('printing');
-    setTimeout(()=>{
-      window.print();
-      setTimeout(()=> view.classList.remove('printing'), 300);
-    }, 60);
-  });
+  // a aba "Gravações por Prof" foi removida: as gravações do cronograma agora
+  // aparecem como obrigatórias dentro do Checklist de Gravação e Fotos.
+  function renderProfs(){ /* removida — mantida como no-op pra não quebrar chamadas antigas */ }
 
   // ---------- MODAL CLOSE / OVERLAY ----------
   $$('[data-close]').forEach(btn=> btn.addEventListener('click', ()=>{ closePostModal(); closeCardModal(); closeStudioModal(); closePersonModal(); closeEventoModal(); closeOutroModal(); closeProfessorModal(); closeRoteiroModal(); closeSolicModal(); closeProjetoModal(); closeStoryModal(); closeModeloModal(); }));
@@ -4727,58 +4732,128 @@
     closeSolicModal(); closeProjetoModal(); closeStoryModal(); closeModeloModal();
   });
 
-  // ---------- CHECKLIST DE GRAVAÇÃO ----------
+  // ---------- CHECKLIST DE GRAVAÇÃO E FOTOS ----------
+  const TIPO_LABEL = { video:'Vídeo', foto:'Foto' };
+  const TIPO_COR   = { video:'#ec4899', foto:'#38bdf8' };
+
+  function selectCheckTipo(v){
+    selectedCheckTipo = (v === 'foto') ? 'foto' : 'video';
+    $$('#checkTipoPicker .opt-pill').forEach(p=> p.classList.toggle('sel', p.dataset.ctipo === selectedCheckTipo));
+  }
+  function selectCheckObrig(v){
+    selectedCheckObrig = !!v;
+    $$('#checkObrigPicker .opt-pill').forEach(p=> p.classList.toggle('sel', (p.dataset.cobr === '1') === selectedCheckObrig));
+  }
+  $$('#checkTipoPicker .opt-pill').forEach(p=> p.addEventListener('click', ()=> selectCheckTipo(p.dataset.ctipo)));
+  $$('#checkObrigPicker .opt-pill').forEach(p=> p.addEventListener('click', ()=> selectCheckObrig(p.dataset.cobr === '1')));
+
   function renderChecklist(){
     const grid = $('#checkGrid');
     if(!grid) return;
 
-    const obrig = cards.filter(c=> c.status==='a-gravar' && (!filterChecklistProf || profsDoCard(c).includes(filterChecklistProf)));
-    const extra = checklistExtra.filter(c=> !filterChecklistProf || c.prof===filterChecklistProf);
+    const passaTipo = t => !filterChecklistTipo || t === filterChecklistTipo;
+
+    // obrigatórias que nascem sozinhas dos posts de vídeo do cronograma
+    const doCronograma = cards.filter(c=> c.status === 'a-gravar'
+      && (!filterChecklistProf || profsDoCard(c).includes(filterChecklistProf))
+      && passaTipo('video'));
+
+    // itens adicionados aqui na mão (podem ser obrigatórios ou não, vídeo ou foto)
+    const manuais = checklistExtra.filter(c=> (!filterChecklistProf || c.prof === filterChecklistProf)
+      && passaTipo(c.tipo || 'video'));
 
     const ce = $('#checklistExtraCount');
-    if(ce) ce.textContent = extra.filter(c=>!c.done).length;
+    if(ce) ce.textContent = doCronograma.length + manuais.filter(c=> !c.done).length;
 
-    // agrupa tudo por professor
     const grupos = new Map();
-    const put = (nome, tipo, item)=>{
+    const put = (nome, secao, item)=>{
       const key = (nome && nome.trim()) || 'Sem prof definido';
       if(!grupos.has(key)) grupos.set(key, { obrig:[], extra:[] });
-      grupos.get(key)[tipo].push(item);
+      grupos.get(key)[secao].push(item);
     };
-    obrig.forEach(c=>{
+    doCronograma.forEach(c=>{
       const nomes = profsDoCard(c);
       if(nomes.length) nomes.forEach(n=> put(n, 'obrig', c));
       else put('', 'obrig', c);
     });
-    extra.forEach(c=> put(c.prof, 'extra', c));
+    manuais.forEach(c=> put(c.prof, c.obrigatoria ? 'obrig' : 'extra', c));
 
     const nomes = Array.from(grupos.keys()).sort((a,b)=>{
-      if(a==='Sem prof definido') return 1;
-      if(b==='Sem prof definido') return -1;
+      if(a === 'Sem prof definido') return 1;
+      if(b === 'Sem prof definido') return -1;
       return a.localeCompare(b);
     });
 
     grid.innerHTML = '';
     const empty = $('#checkEmpty');
-    if(nomes.length===0){
-      if(empty){ empty.style.display='block'; empty.textContent = filterChecklistProf ? 'Nada pendente para esse prof.' : 'Nada pendente por aqui.'; }
+    if(nomes.length === 0){
+      if(empty){
+        empty.style.display = 'block';
+        empty.textContent = (filterChecklistProf || filterChecklistTipo) ? 'Nada pendente com esses filtros.' : 'Nada pendente por aqui.';
+      }
       return;
     }
-    if(empty) empty.style.display='none';
+    if(empty) empty.style.display = 'none';
+
+    // um item pode ser um card do cronograma ou um item manual
+    const montaLinha = (item, ehCard)=>{
+      const feito = ehCard ? (item.status === 'concluido') : !!item.done;
+      const tipo  = ehCard ? 'video' : (item.tipo || 'video');
+      const row = document.createElement('div');
+      row.className = 'check-item' + (feito ? ' done' : '');
+      const meta = ehCard
+        ? ['do cronograma de posts', item.local ? escapeHtml(item.local) : '', item.dataPostagem ? 'posta em ' + formatDatePt(item.dataPostagem) : '']
+            .filter(Boolean).join(' · ')
+        : '';
+      row.innerHTML =
+        '<div class="todo-check' + (feito ? ' checked' : '') + '">' + (feito ? ICONS.check : '') + '</div>' +
+        '<div class="ci-text">' + escapeHtml(item.tema) +
+          '<span class="ci-tag" style="background:' + TIPO_COR[tipo] + '">' + TIPO_LABEL[tipo] + '</span>' +
+          (meta ? '<div class="minha-meta">' + meta + '</div>' : '') +
+        '</div>' +
+        (ehCard ? '' : '<button class="anexo-btn del ci-del" title="Excluir">' + ICONS.trash + '</button>');
+
+      row.querySelector('.todo-check').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        if(ehCard){
+          item.status = (item.status === 'concluido') ? 'a-gravar' : 'concluido';
+          await saveCards();
+        } else {
+          item.done = !item.done;
+          await saveChecklistExtra();
+        }
+        renderChecklist(); updateBadges();
+        toast(ICONS.check + ' Checklist atualizado');
+      });
+
+      const del = row.querySelector('.ci-del');
+      if(del) del.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        checklistExtra = checklistExtra.filter(x=> x.id !== item.id);
+        await saveChecklistExtra(); renderChecklist(); updateBadges();
+      });
+
+      if(ehCard) row.addEventListener('click', (e)=>{
+        if(e.target.closest('.todo-check')) return;
+        openCardModal(item.id);
+      });
+      return row;
+    };
 
     nomes.forEach(nome=>{
       const g = grupos.get(nome);
-      const pendentes = g.obrig.length + g.extra.filter(x=>!x.done).length;
-      const iniciais = nome==='Sem prof definido' ? '?' : nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const pendentes = g.obrig.filter(x=> x.status ? x.status !== 'concluido' : !x.done).length
+                      + g.extra.filter(x=> !x.done).length;
+      const iniciais = nome === 'Sem prof definido' ? '?' : nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
       const card = document.createElement('div');
       card.className = 'check-card';
       card.innerHTML =
-        '<div class="check-card-head">'+
-          '<div class="check-avatar">'+escapeHtml(iniciais)+'</div>'+
-          '<div class="cch-nome">'+escapeHtml(nome)+'</div>'+
-          '<span class="col-count">'+pendentes+'</span>'+
-        '</div>'+
+        '<div class="check-card-head">' +
+          '<div class="check-avatar">' + escapeHtml(iniciais) + '</div>' +
+          '<div class="cch-nome">' + escapeHtml(nome) + '</div>' +
+          '<span class="col-count">' + pendentes + '</span>' +
+        '</div>' +
         '<div class="check-card-body"></div>';
       const body = card.querySelector('.check-card-body');
 
@@ -4788,27 +4863,7 @@
         lab.textContent = 'Obrigatórias';
         body.appendChild(lab);
       }
-      g.obrig.forEach(c=>{
-        const row = document.createElement('div');
-        row.className = 'check-item';
-        row.innerHTML =
-          '<div class="todo-check"></div>'+
-          '<div class="ci-text">'+escapeHtml(c.tema)+
-            (c.formato ? '<div class="minha-meta">'+escapeHtml(c.formato)+(c.local?' · '+escapeHtml(c.local):'')+'</div>' : '')+
-          '</div>';
-        row.querySelector('.todo-check').addEventListener('click', async (e)=>{
-          e.stopPropagation();
-          c.status = 'concluido';
-          await saveCards();
-          renderBoard(); renderProfs(); renderChecklist(); updateBadges();
-          toast(ICONS.check + ' Marcado como gravado');
-        });
-        row.addEventListener('click', (e)=>{
-          if(e.target.closest('.todo-check')) return;
-          openCardModal(c.id);
-        });
-        body.appendChild(row);
-      });
+      g.obrig.forEach(item=> body.appendChild(montaLinha(item, !!item.status)));
 
       if(g.extra.length){
         const lab = document.createElement('div');
@@ -4817,25 +4872,7 @@
         lab.textContent = 'Não obrigatórias';
         body.appendChild(lab);
       }
-      g.extra.slice().reverse().forEach(c=>{
-        const row = document.createElement('div');
-        row.className = 'check-item' + (c.done ? ' done' : '');
-        row.innerHTML =
-          '<div class="todo-check'+(c.done?' checked':'')+'">'+(c.done ? ICONS.check : '')+'</div>'+
-          '<div class="ci-text">'+escapeHtml(c.tema)+'</div>'+
-          '<button class="anexo-btn del ci-del">'+ICONS.trash+'</button>';
-        row.querySelector('.todo-check').addEventListener('click', async (e)=>{
-          e.stopPropagation();
-          c.done = !c.done;
-          await saveChecklistExtra(); renderChecklist(); updateBadges();
-        });
-        row.querySelector('.ci-del').addEventListener('click', async (e)=>{
-          e.stopPropagation();
-          checklistExtra = checklistExtra.filter(x=>x.id!==c.id);
-          await saveChecklistExtra(); renderChecklist(); updateBadges();
-        });
-        body.appendChild(row);
-      });
+      g.extra.slice().reverse().forEach(item=> body.appendChild(montaLinha(item, false)));
 
       grid.appendChild(card);
     });
@@ -4843,14 +4880,100 @@
 
   $('#btnAddChecklistExtra').addEventListener('click', async ()=>{
     const tema = $('#checklistExtraTema').value.trim();
-    if(!tema){ toast(ICONS.alert + ' Escreva o que você gostaria de gravar'); return; }
+    if(!tema){ toast(ICONS.alert + ' Escreva o que precisa ser gravado ou fotografado'); return; }
     const prof = $('#checklistExtraProf').value.trim();
-    checklistExtra.push({ id: uid(), tema, prof, done:false });
-    $('#checklistExtraTema').value = '';
-    $('#checklistExtraProf').value = '';
+    checklistExtra.push({
+      id: uid(), tema, prof,
+      tipo: selectedCheckTipo,
+      obrigatoria: selectedCheckObrig,
+      done: false
+    });
+    $('#checklistExtraTema').value = '';   // o prof continua preenchido pra facilitar vários seguidos
+    $('#checklistExtraTema').focus();
     await saveChecklistExtra(); renderChecklist(); updateBadges();
+    toast(ICONS.check + ' ' + TIPO_LABEL[selectedCheckTipo] + (selectedCheckObrig ? ' obrigatória' : ' não obrigatória') + ' adicionada');
   });
-  $('#checklistExtraTema').addEventListener('keydown', (e)=>{ if(e.key==='Enter') $('#btnAddChecklistExtra').click(); });
+  $('#checklistExtraTema').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') $('#btnAddChecklistExtra').click(); });
+  $('#checklistExtraProf').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') $('#btnAddChecklistExtra').click(); });
+
+  // ---------- POSTS POR PROF ----------
+  function renderPostsPorProf(){
+    const grid = $('#ppGrid');
+    if(!grid) return;
+    const empty = $('#ppEmpty');
+
+    const comProf = posts.filter(p=> p.professor && p.professor.trim());
+    const lista = comProf.filter(p=>{
+      if(filterPPProf && p.professor.trim() !== filterPPProf) return false;
+      if(filterPPStatus === 'postado' && p.status !== 'postado') return false;
+      if(filterPPStatus === 'pendente' && p.status === 'postado') return false;
+      return true;
+    });
+
+    grid.innerHTML = '';
+    if(lista.length === 0){
+      if(empty){
+        empty.style.display = 'block';
+        empty.textContent = comProf.length
+          ? 'Nenhum post com esses filtros.'
+          : 'Nenhum post com professor definido ainda — defina o professor ao abrir um post no cronograma.';
+      }
+      return;
+    }
+    if(empty) empty.style.display = 'none';
+
+    const grupos = new Map();
+    lista.forEach(p=>{
+      const k = p.professor.trim();
+      if(!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(p);
+    });
+
+    Array.from(grupos.keys()).sort((a,b)=> a.localeCompare(b)).forEach(nome=>{
+      const itens = grupos.get(nome).slice().sort((a,b)=> (a.date + a.horario).localeCompare(b.date + b.horario));
+      const postados = itens.filter(p=> p.status === 'postado').length;
+      const iniciais = nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+      const card = document.createElement('div');
+      card.className = 'check-card';
+      card.innerHTML =
+        '<div class="check-card-head">' +
+          '<div class="check-avatar">' + escapeHtml(iniciais) + '</div>' +
+          '<div class="cch-nome">' + escapeHtml(nome) + '</div>' +
+          '<span class="col-count">' + postados + '/' + itens.length + '</span>' +
+        '</div>' +
+        '<div class="check-card-body"></div>';
+      const body = card.querySelector('.check-card-body');
+
+      itens.forEach(p=>{
+        const feito = (p.status === 'postado');
+        const row = document.createElement('div');
+        row.className = 'pp-row' + (feito ? ' done' : '');
+        row.innerHTML =
+          '<div class="todo-check' + (feito ? ' checked' : '') + '" title="' + (feito ? 'Postado' : 'Marcar como postado') + '">' + (feito ? ICONS.check : '') + '</div>' +
+          '<div class="pp-tema">' + escapeHtml(p.tema || p.formato) +
+            '<div class="minha-meta">' + formatDatePt(p.date) + ' · ' + p.horario +
+              (p.formato ? ' · ' + escapeHtml(p.formato) : '') +
+              ' · ' + STATUS_LABELS[p.status || 'producao'] +
+            '</div>' +
+          '</div>';
+
+        row.querySelector('.todo-check').addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          if(currentUser && currentUser.permissao === 'Visualizador') return;
+          p.status = feito ? 'pronto' : 'postado';
+          await savePosts();
+          await sincronizaCardDoPost(p);
+          renderPostsPorProf(); renderCalendar(); renderKanban(); updateBadges();
+          toast(ICONS.check + (p.status === 'postado' ? ' Marcado como postado' : ' Voltou pra pronto pra postar'));
+        });
+        row.querySelector('.pp-tema').addEventListener('click', ()=> openPostModal(p.date, p.id));
+        body.appendChild(row);
+      });
+
+      grid.appendChild(card);
+    });
+  }
 
   // ---------- OUTROS ENTREGÁVEIS (PROJETOS + DEMANDAS) ----------
   const SEM_PROJETO = '__sem__';
@@ -5390,6 +5513,10 @@
       el.className = 'profbank-card';
       const ini = (p.nome||'?').trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
       const link = (url, label)=> url ? '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+label+'</a>' : '';
+      const marca = (label, n)=> n ? '<span style="opacity:.8">'+n+' '+label+(n===1?'':'s')+'</span>' : '';
+      const nSlides = (p.slidesAnexos||[]).length;
+      const nDicas  = (p.dicasAnexos||[]).length;
+      const todosPend = (p.todos||[]).filter(t=> !t.done).length;
       el.innerHTML =
         '<div class="profbank-avatar">'+escapeHtml(ini)+'</div>'+
         '<div class="profbank-nome">'+escapeHtml(p.nome)+'</div>'+
@@ -5399,8 +5526,10 @@
         ((p.materias && p.materias.length)
           ? '<div class="profbank-materias">'+p.materias.map(m=>'<span>'+escapeHtml(m)+'</span>').join('')+'</div>'
           : '')+
+        (todosPend ? '<div class="profbank-count-label" style="margin-top:7px;">'+todosPend+(todosPend===1?' item no to-do':' itens no to-do')+'</div>' : '')+
         '<div class="profbank-links">'+
           link(p.slides,'Slides')+link(p.dicas,'Dicas')+link(p.questoes,'Questões')+link(p.arquivos,'Arquivos')+
+          marca('slide', nSlides)+marca('dica', nDicas)+
         '</div>';
       el.addEventListener('click', ()=> openProfessorModal(p.id));
       grid.appendChild(el);
@@ -5491,6 +5620,9 @@
       $('#professorCaracteristicas').value = p.caracteristicas || '';
       $('#professorSlides').value = p.slides || '';
       $('#professorDicas').value = p.dicas || '';
+      profAnexosSlides = (p.slidesAnexos || []).slice();
+      profAnexosDicas  = (p.dicasAnexos  || []).slice();
+      profTodos        = (p.todos || []).map(t=> ({ ...t }));
       $('#professorQuestoes').value = p.questoes || '';
       $('#professorArquivos').value = p.arquivos || '';
       materiasEditando = (p.materias || []).slice();
@@ -5515,6 +5647,9 @@
       $('#professorCaracteristicas').value = '';
       $('#professorSlides').value = '';
       $('#professorDicas').value = '';
+      profAnexosSlides = [];
+      profAnexosDicas  = [];
+      profTodos        = [];
       $('#professorQuestoes').value = '';
       $('#professorArquivos').value = '';
       materiasEditando = [];
@@ -5522,9 +5657,83 @@
       $('#btnDeleteProfessor').style.display = 'none';
       box.innerHTML = '';
     }
+    refreshProfAnexosUI();
+    renderProfTodos();
     $('#overlayProfessor').classList.add('show');
   }
   function closeProfessorModal(){ $('#overlayProfessor').classList.remove('show'); }
+
+  // ---- slides e dicas anexados direto no prof ----
+  function refreshProfAnexosUI(){
+    const isViewer = currentUser && currentUser.permissao === 'Visualizador';
+    [['#profSlidesDrop','#profSlidesAnexos'], ['#profDicasDrop','#profDicasAnexos']].forEach(([d])=>{
+      const drop = $(d);
+      if(drop) drop.style.display = isViewer ? 'none' : 'block';
+    });
+    renderAnexoStrip($('#profSlidesAnexos'), profAnexosSlides, {
+      editable: !isViewer,
+      emptyText: 'Nenhum slide anexado ainda.',
+      onRemove: (aid)=>{ profAnexosSlides = profAnexosSlides.filter(a=> a.id !== aid); refreshProfAnexosUI(); }
+    });
+    renderAnexoStrip($('#profDicasAnexos'), profAnexosDicas, {
+      editable: !isViewer,
+      emptyText: 'Nenhum material de dicas anexado ainda.',
+      onRemove: (aid)=>{ profAnexosDicas = profAnexosDicas.filter(a=> a.id !== aid); refreshProfAnexosUI(); }
+    });
+  }
+  $('#profSlidesDrop').addEventListener('click', ()=> $('#profSlidesFile').click());
+  $('#profSlidesFile').addEventListener('change', async (e)=>{
+    const novos = await filesToAnexos(e.target.files);
+    if(novos.length){ profAnexosSlides = profAnexosSlides.concat(novos); refreshProfAnexosUI(); }
+    e.target.value = '';
+  });
+  $('#profDicasDrop').addEventListener('click', ()=> $('#profDicasFile').click());
+  $('#profDicasFile').addEventListener('change', async (e)=>{
+    const novos = await filesToAnexos(e.target.files);
+    if(novos.length){ profAnexosDicas = profAnexosDicas.concat(novos); refreshProfAnexosUI(); }
+    e.target.value = '';
+  });
+
+  // ---- to-do list do prof ----
+  function renderProfTodos(){
+    const box = $('#profTodoList');
+    if(!box) return;
+    box.innerHTML = '';
+    if(!profTodos.length){
+      box.innerHTML = '<div style="font-size:11.5px; color:var(--ink-faint);">Nenhum item ainda.</div>';
+      return;
+    }
+    profTodos.forEach(t=>{
+      const row = document.createElement('div');
+      row.className = 'check-item' + (t.done ? ' done' : '');
+      row.innerHTML =
+        '<div class="todo-check' + (t.done ? ' checked' : '') + '">' + (t.done ? ICONS.check : '') + '</div>' +
+        '<div class="ci-text">' + escapeHtml(t.texto || '') + '</div>' +
+        '<button class="anexo-btn del pt-del" title="Excluir">' + ICONS.trash + '</button>';
+      row.querySelector('.todo-check').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        t.done = !t.done;
+        renderProfTodos();
+      });
+      row.querySelector('.pt-del').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        profTodos = profTodos.filter(x=> x.id !== t.id);
+        renderProfTodos();
+      });
+      box.appendChild(row);
+    });
+  }
+  function addProfTodo(){
+    const inp = $('#profTodoInput');
+    const texto = inp.value.trim();
+    if(!texto) return;
+    profTodos.push({ id: uid(), texto, done: false });
+    inp.value = '';
+    inp.focus();
+    renderProfTodos();
+  }
+  $('#btnAddProfTodo').addEventListener('click', addProfTodo);
+  $('#profTodoInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); addProfTodo(); } });
 
   $('#btnNewProfessor').addEventListener('click', ()=> openProfessorModal(null));
 
@@ -5540,7 +5749,10 @@
       slides: $('#professorSlides').value.trim(),
       dicas: $('#professorDicas').value.trim(),
       questoes: $('#professorQuestoes').value.trim(),
-      arquivos: $('#professorArquivos').value.trim()
+      arquivos: $('#professorArquivos').value.trim(),
+      slidesAnexos: profAnexosSlides.slice(),
+      dicasAnexos: profAnexosDicas.slice(),
+      todos: profTodos.map(t=> ({ ...t }))
     };
     if(editingProfessorId){
       const antigo = professores.find(p=>p.id===editingProfessorId);
@@ -5558,7 +5770,7 @@
         roteiros.forEach(r=>{ if(r.prof===nomeAntigo) r.prof = nome; });
         checklistExtra.forEach(c=>{ if(c.prof===nomeAntigo) c.prof = nome; });
         await saveCards(); await saveStudioEvents(); await savePosts(); await saveRoteiros(); await saveChecklistExtra();
-        renderBoard(); renderProfs(); renderStudio(); renderCalendar(); renderKanban(); renderRoteiros(); renderChecklist();
+        renderStudio(); renderCalendar(); renderKanban(); renderRoteiros(); renderChecklist(); renderPostsPorProf();
       }
     } else {
       professores.push({ id: uid(), ...data });
