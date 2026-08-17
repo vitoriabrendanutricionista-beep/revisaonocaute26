@@ -40,6 +40,7 @@
   alter table professores add column if not exists todos text;
   alter table checklist_extra add column if not exists tipo text;
   alter table checklist_extra add column if not exists obrigatoria boolean;
+  alter table posts add column if not exists trello_id text;
 
   -- BUCKET pros vídeos (arquivos grandes não cabem no banco)
   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -726,6 +727,39 @@
   .type-pill.sel{ color:#fff; border-color:transparent; box-shadow:0 6px 16px -6px rgba(0,0,0,0.6);}
 
   /* ---------- BANCO DE PROFS ---------- */
+  .import-ou{ display:flex; align-items:center; gap:12px; margin:14px 0; color:var(--ink-faint); font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; }
+  .import-ou::before, .import-ou::after{ content:''; flex:1; height:1px; background:var(--panel-border); }
+  #trelloTexto{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px; }
+  .import-resumo{ margin-top:12px; font-size:12.5px; color:var(--ink-dim); line-height:1.7; }
+  .import-resumo b{ color:var(--ink); }
+  .import-cols{ display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  @media (max-width:880px){ .import-cols{ grid-template-columns:1fr; } }
+  .map-row{ display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--panel-border); }
+  .map-row:last-child{ border-bottom:none; }
+  .map-nome{ flex:1; font-size:12.5px; font-weight:500; display:flex; align-items:center; gap:7px; min-width:0; }
+  .map-nome span.d{ width:10px; height:10px; min-width:10px; border-radius:3px; display:inline-block; }
+  .map-nome i{ font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .map-qtd{ font-size:11px; color:var(--ink-faint); white-space:nowrap; }
+  .map-row .mini-select{ width:auto; min-width:150px; }
+  .import-acoes{ display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .import-acoes .spacer{ flex:1; }
+  .import-tabela-wrap{ overflow:auto; max-height:56vh; border-radius:12px; border:1px solid var(--panel-border); }
+  .import-tabela{ width:100%; border-collapse:collapse; min-width:940px; }
+  .import-tabela th{
+    position:sticky; top:0; z-index:2; background:var(--solid-2);
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--ink-dim); padding:10px 8px; border-bottom:1px solid var(--panel-border); white-space:nowrap;
+  }
+  .import-tabela td{ padding:6px 8px; border-bottom:1px solid var(--panel-border); font-size:12.5px; vertical-align:middle; }
+  .import-tabela tr.fora td{ opacity:.4; }
+  .import-tabela tr.repetido td{ background:rgba(245,166,35,0.09); }
+  .import-tabela input[type="text"], .import-tabela input[type="date"], .import-tabela input[type="time"]{
+    width:100%; box-sizing:border-box; background:var(--w055); border:1px solid var(--w140); color:var(--ink);
+    font-family:inherit; font-size:12.5px; padding:7px 9px; border-radius:9px; outline:none;
+  }
+  .import-tabela input:focus{ border-color:var(--violet); }
+  .import-tabela .mini-select{ width:100%; }
+  .import-aviso{ font-size:10.5px; color:var(--amber); margin-top:3px; }
   .cal-resumo{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .cal-resumo span{ font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:20px; background:var(--w080); border:1px solid var(--panel-border); color:var(--ink-soft); }
   .check-add-opts{ display:flex; flex-wrap:wrap; gap:22px; margin-top:14px; }
@@ -1448,6 +1482,10 @@
         Minhas Responsabilidades
         <span class="nav-badge" id="badge-minhas">0</span>
       </div>
+      <div class="nav-item" data-view="import">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Importar do Trello
+      </div>
       <div class="nav-item" data-view="events">
         <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
         Acontecimentos
@@ -1587,6 +1625,115 @@
       </div>
       <div class="check-grid" id="ppGrid"></div>
       <div class="dash-empty" id="ppEmpty" style="display:none;">Nenhum post com professor definido ainda.</div>
+    </section>
+
+    <!-- VIEW: IMPORTAR DO TRELLO -->
+    <section class="view" id="view-import">
+      <div class="topbar">
+        <div class="title-block">
+          <h1>Importar do Trello</h1>
+          <p>No Trello: menu ⋯ → Imprimir, exportar e compartilhar → Exportar como JSON. Depois solte o arquivo aqui.</p>
+        </div>
+      </div>
+
+      <div class="dash-col" style="margin-bottom:18px;">
+        <div class="dash-col-head">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          1. O arquivo do quadro
+        </div>
+        <div class="file-drop" id="trelloDrop">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Clique aqui e escolha o .json exportado do Trello
+        </div>
+        <input type="file" id="trelloFile" accept="application/json,.json,text/plain" style="display:none;">
+        <div class="import-ou">
+          <span>ou</span>
+        </div>
+        <div class="todo-add-row" style="align-items:flex-start;">
+          <textarea id="trelloTexto" placeholder="Se o Trello abriu o JSON numa aba nova em vez de baixar: selecione tudo (Cmd+A), copie e cole aqui." style="min-height:90px;"></textarea>
+          <button class="btn btn-ghost" id="btnTrelloColar" style="white-space:nowrap;">Ler o texto colado</button>
+        </div>
+        <div id="trelloResumo" class="import-resumo"></div>
+      </div>
+
+      <div id="trelloPasso2" style="display:none;">
+        <div class="dash-col" style="margin-bottom:18px;">
+          <div class="dash-col-head">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            2. De-para
+          </div>
+          <div class="import-cols">
+            <div>
+              <div class="mini-label" style="margin-bottom:8px;">Listas do Trello → status de produção</div>
+              <div id="mapListas"></div>
+            </div>
+            <div>
+              <div class="mini-label" style="margin-bottom:8px;">Etiquetas → formato do post</div>
+              <div id="mapEtiquetas"></div>
+            </div>
+          </div>
+          <div class="check-add-opts" style="margin-top:18px;">
+            <div>
+              <div class="mini-label">Ano dos cards sem ano</div>
+              <select class="filter-select" id="trelloAno"></select>
+            </div>
+            <div>
+              <div class="mini-label">Cards arquivados</div>
+              <select class="filter-select" id="trelloArquivados">
+                <option value="0">Ignorar</option>
+                <option value="1">Importar também</option>
+              </select>
+            </div>
+            <div>
+              <div class="mini-label">Reels, vídeos e stories</div>
+              <select class="filter-select" id="trelloGravar">
+                <option value="0">Entram como já gravados</option>
+                <option value="1">Entram como "a gravar" no checklist</option>
+              </select>
+            </div>
+            <div>
+              <div class="mini-label">Cards sem data</div>
+              <select class="filter-select" id="trelloSemData">
+                <option value="0">Esconder da lista</option>
+                <option value="1">Mostrar pra eu preencher</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-col">
+          <div class="dash-col-head">
+            <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            3. Confira e importe <span class="col-count" id="trelloCount">0</span>
+          </div>
+          <div class="import-acoes">
+            <button class="btn btn-ghost" id="btnTrelloTodos">Marcar todos</button>
+            <button class="btn btn-ghost" id="btnTrelloNenhum">Desmarcar todos</button>
+            <div class="spacer"></div>
+            <button class="btn btn-primary" id="btnTrelloImportar">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Importar pro cronograma
+            </button>
+          </div>
+          <div class="import-tabela-wrap">
+            <table class="import-tabela">
+              <thead>
+                <tr>
+                  <th style="width:34px;"></th>
+                  <th style="width:130px;">Data</th>
+                  <th style="width:92px;">Hora</th>
+                  <th>Tema</th>
+                  <th style="width:120px;">Formato</th>
+                  <th style="width:140px;">Status</th>
+                  <th style="width:150px;">Responsável</th>
+                  <th style="width:150px;">Professor</th>
+                </tr>
+              </thead>
+              <tbody id="trelloPreview"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- VIEW: STUDIO SCHEDULE -->
@@ -2705,6 +2852,8 @@
   let currentWeekStart = getWeekStart(new Date());
   let studioInicio = null;        // primeiro dia renderizado na grade do estúdio
   let studioAjustando = false;    // trava pra janela não andar duas vezes seguidas
+  let trelloQuadro = null;        // JSON exportado do Trello, já digerido
+  let trelloItens = [];           // uma linha da prévia por card
   let editingPostId = null;
   let editingPostDate = null;
   let editingCardId = null;
@@ -3082,8 +3231,8 @@
 
   const MAP = {
     posts: {
-      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null, texto:p.texto||null, arte:p.arte||null, referencia:p.referencia||null, professor:p.professor||null, carrossel_tipo:p.carrosselTipo||null, reels_tipo:p.reelsTipo||null, gravado:!!p.gravado, anexos:packAnexos(p.anexos) }),
-      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'', carrosselTipo:r.carrossel_tipo||'', reelsTipo:r.reels_tipo||'', gravado:!!r.gravado, anexos:unpackAnexos(r.anexos) })
+      to:   p => ({ id:p.id, date:p.date||null, horario:p.horario||null, formato:p.formato||null, tema:p.tema||null, responsavel:p.responsavel||null, status:p.status||'producao', from_card_id:p.fromCardId||null, texto:p.texto||null, arte:p.arte||null, referencia:p.referencia||null, professor:p.professor||null, carrossel_tipo:p.carrosselTipo||null, reels_tipo:p.reelsTipo||null, gravado:!!p.gravado, anexos:packAnexos(p.anexos), trello_id:p.trelloId||null }),
+      from: r => ({ id:r.id, date:r.date||'', horario:r.horario||'09:00', formato:r.formato||'Feed', tema:r.tema||'', responsavel:r.responsavel||'', status:r.status||'producao', fromCardId:r.from_card_id||null, texto:r.texto||'', arte:r.arte||'', referencia:r.referencia||'', professor:r.professor||'', carrosselTipo:r.carrossel_tipo||'', reelsTipo:r.reels_tipo||'', gravado:!!r.gravado, anexos:unpackAnexos(r.anexos), trelloId:r.trello_id||'' })
     },
     cards: {
       to:   c => ({ id:c.id, tema:c.tema||null, prof:(profsDoCard(c)[0]||null), profs:(profsDoCard(c).join(', ')||null), ref:c.ref||null, copy:c.copy||null, status:c.status||'a-gravar', formato:c.formato||null, local:c.local||null, data_postagem:c.dataPostagem||null, from_post_id:c.fromPostId||null, etapa:c.etapa||'producao', solic_id:c.solicId||null }),
@@ -6594,6 +6743,380 @@
     closePersonModal();
   });
 
+  // ---------- IMPORTAR DO TRELLO ----------
+  // O quadro sai do Trello como JSON. Aqui a gente lê listas (= status),
+  // etiquetas (= formato) e as datas — que na sua operação às vezes estão no
+  // "due date" e às vezes escritas no nome do card.
+
+  const MESES_CURTOS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+  function palpiteStatus(nomeLista){
+    const n = (nomeLista || '').toLowerCase();
+    if(/postad|publicad|no ar|feito|done|conclu/.test(n)) return 'postado';
+    if(/pronto|aprovad|agendad|programad/.test(n))        return 'pronto';
+    if(/revis|confer|check/.test(n))                      return 'revisao';
+    if(/edi[çc]|edit|arte|design/.test(n))                return 'edicao';
+    return 'producao';
+  }
+  function palpiteFormato(nomeEtiqueta){
+    const n = (nomeEtiqueta || '').toLowerCase();
+    if(/reel/.test(n))                       return 'Reels';
+    if(/stor/.test(n))                       return 'Story';
+    if(/carros|carous|c[aá]rd|album/.test(n)) return 'Carrossel';
+    if(/v[íi]deo|video|yt|youtube|aula/.test(n)) return 'Vídeo';
+    if(/feed|est[áa]tico|imagem|post|arte/.test(n)) return 'Feed';
+    return '';
+  }
+
+  // acha a data do card: primeiro o due date, senão procura no nome
+  function dataDoCard(card, anoPadrao){
+    if(card.due){
+      const d = new Date(card.due);
+      if(!isNaN(d.getTime())){
+        return { date: fmtDateFromObj(d), horario: minLabel(d.getHours()*60 + d.getMinutes()), origem: 'prazo' };
+      }
+    }
+    const nome = card.name || '';
+    let m = nome.match(/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})(?:\s*[\/\-.]\s*(\d{2,4}))?/);
+    if(m){
+      const dia = +m[1], mes = +m[2];
+      let ano = m[3] ? +m[3] : anoPadrao;
+      if(ano < 100) ano += 2000;
+      if(dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12){
+        return { date: fmtDate(ano, mes-1, dia), horario: '', origem: 'nome', trecho: m[0] };
+      }
+    }
+    m = nome.toLowerCase().match(/(\d{1,2})\s*(?:de\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-zç]*/);
+    if(m){
+      const dia = +m[1], mes = MESES_CURTOS.indexOf(m[2]);
+      if(dia >= 1 && dia <= 31 && mes > -1){
+        return { date: fmtDate(anoPadrao, mes, dia), horario: '', origem: 'nome', trecho: m[0] };
+      }
+    }
+    return null;
+  }
+  function horaDoNome(nome){
+    const m = (nome || '').match(/\b(\d{1,2})\s*[h:]\s*(\d{2})\b/) || (nome || '').match(/\b(\d{1,2})\s*h\b/i);
+    if(!m) return null;
+    const h = +m[1], mi = m[2] ? +m[2] : 0;
+    if(h > 23 || mi > 59) return null;
+    return { horario: minLabel(h*60 + mi), trecho: m[0] };
+  }
+  function limpaTema(nome, pedacos){
+    let t = nome || '';
+    (pedacos || []).filter(Boolean).forEach(p=>{ t = t.split(p).join(' '); });
+    return t.replace(/[\s\-–—:•|]+/g, ' ').trim() || (nome || '').trim();
+  }
+  // se o nome do card citar um prof cadastrado, já preenche
+  function profNoTexto(texto){
+    const t = (texto || '').toLowerCase();
+    let achado = '';
+    distinctProfs().forEach(nome=>{
+      const primeiro = nome.trim().split(' ')[0].toLowerCase();
+      if(primeiro.length >= 3 && t.indexOf(primeiro) > -1 && !achado) achado = nome;
+    });
+    return achado;
+  }
+
+  function lerQuadroTrello(texto){
+    let j;
+    try{ j = JSON.parse(texto); }
+    catch(_){ toast(ICONS.alert + ' Esse arquivo não é um JSON válido do Trello'); return; }
+    if(!j || !Array.isArray(j.cards)){
+      toast(ICONS.alert + ' Não encontrei cards nesse arquivo — exporte o quadro como JSON');
+      return;
+    }
+
+    const listas = (j.lists || []).map(l=> ({ id:l.id, name:l.name, fechada:!!l.closed, status: palpiteStatus(l.name) }));
+    const etiquetas = (j.labels || []).map(e=> ({ id:e.id, name:e.name || '(sem nome)', cor:e.color, formato: palpiteFormato(e.name) }));
+    const membros = {};
+    (j.members || []).forEach(mb=>{ membros[mb.id] = mb.fullName || mb.username || ''; });
+
+    trelloQuadro = { nome: j.name || 'Quadro', listas, etiquetas, membros, cards: j.cards };
+
+    // ano padrão: o ano atual, mais os vizinhos
+    const anoSel = $('#trelloAno');
+    const agora = new Date().getFullYear();
+    anoSel.innerHTML = [agora-1, agora, agora+1].map(a=> '<option value="'+a+'"'+(a===agora?' selected':'')+'>'+a+'</option>').join('');
+
+    const arquivados = j.cards.filter(c=> c.closed).length;
+    $('#trelloResumo').innerHTML =
+      'Quadro <b>'+escapeHtml(trelloQuadro.nome)+'</b> · <b>'+j.cards.length+'</b> card'+(j.cards.length===1?'':'s')+
+      ' · <b>'+listas.length+'</b> lista'+(listas.length===1?'':'s')+
+      ' · <b>'+etiquetas.length+'</b> etiqueta'+(etiquetas.length===1?'':'s')+
+      (arquivados ? ' · '+arquivados+' arquivado'+(arquivados===1?'':'s') : '');
+
+    $('#trelloPasso2').style.display = 'block';
+    renderMapaTrello();
+    montaItensTrello();
+  }
+
+  function renderMapaTrello(){
+    if(!trelloQuadro) return;
+    const contaLista = {}, contaEtiq = {};
+    trelloQuadro.cards.forEach(c=>{
+      contaLista[c.idList] = (contaLista[c.idList] || 0) + 1;
+      (c.idLabels || (c.labels || []).map(l=>l.id) || []).forEach(id=>{ contaEtiq[id] = (contaEtiq[id] || 0) + 1; });
+    });
+
+    const boxL = $('#mapListas');
+    boxL.innerHTML = '';
+    trelloQuadro.listas.forEach(l=>{
+      const row = document.createElement('div');
+      row.className = 'map-row';
+      row.innerHTML =
+        '<span class="map-nome"><i>'+escapeHtml(l.name)+'</i></span>'+
+        '<span class="map-qtd">'+(contaLista[l.id] || 0)+'</span>'+
+        '<select class="mini-select">'+
+          STATUS_ORDER.map(st=> '<option value="'+st+'"'+(l.status===st?' selected':'')+'>'+STATUS_LABELS[st]+'</option>').join('')+
+        '</select>';
+      row.querySelector('select').addEventListener('change', (e)=>{ l.status = e.target.value; montaItensTrello(); });
+      boxL.appendChild(row);
+    });
+
+    const boxE = $('#mapEtiquetas');
+    boxE.innerHTML = '';
+    if(!trelloQuadro.etiquetas.length){
+      boxE.innerHTML = '<div style="font-size:11.5px; color:var(--ink-faint);">Esse quadro não tem etiquetas — tudo entra como Feed, dá pra ajustar linha a linha embaixo.</div>';
+    }
+    const FORMATOS = ['Feed','Reels','Story','Carrossel','Vídeo'];
+    trelloQuadro.etiquetas.forEach(et=>{
+      const row = document.createElement('div');
+      row.className = 'map-row';
+      row.innerHTML =
+        '<span class="map-nome"><span class="d" style="background:'+(et.cor ? corTrello(et.cor) : 'var(--w220)')+'"></span><i>'+escapeHtml(et.name)+'</i></span>'+
+        '<span class="map-qtd">'+(contaEtiq[et.id] || 0)+'</span>'+
+        '<select class="mini-select">'+
+          '<option value="">— ignorar —</option>'+
+          FORMATOS.map(f=> '<option value="'+f+'"'+(et.formato===f?' selected':'')+'>'+f+'</option>').join('')+
+        '</select>';
+      row.querySelector('select').addEventListener('change', (e)=>{ et.formato = e.target.value; montaItensTrello(); });
+      boxE.appendChild(row);
+    });
+  }
+
+  function corTrello(c){
+    const M = { green:'#34d399', yellow:'#f5a623', orange:'#fb923c', red:'#ef4444', purple:'#a78bfa',
+                blue:'#38bdf8', sky:'#7dd3fc', lime:'#a3e635', pink:'#ec4899', black:'#6b7280' };
+    return M[String(c).replace(/_.*/,'')] || 'var(--w220)';
+  }
+
+  function montaItensTrello(){
+    if(!trelloQuadro) return;
+    const ano = parseInt($('#trelloAno').value, 10) || new Date().getFullYear();
+    const levaArquivados = $('#trelloArquivados').value === '1';
+    const nomesPeople = people.map(p=> p.nome);
+
+    // guarda o que a pessoa já editou na mão, pra não perder ao remapear
+    const editado = {};
+    trelloItens.forEach(it=>{ if(it.tocado) editado[it.trelloId] = it; });
+
+    const statusPorLista = {};
+    trelloQuadro.listas.forEach(l=>{ statusPorLista[l.id] = l.status; });
+    const formatoPorEtiq = {};
+    trelloQuadro.etiquetas.forEach(e=>{ formatoPorEtiq[e.id] = e.formato; });
+
+    trelloItens = trelloQuadro.cards
+      .filter(c=> levaArquivados || !c.closed)
+      .map(c=>{
+        const antigo = editado[c.id];
+        const dt = dataDoCard(c, ano);
+        const hn = horaDoNome(c.name);
+        const idsEtiq = c.idLabels && c.idLabels.length ? c.idLabels : (c.labels || []).map(l=> l.id);
+        let formato = '';
+        idsEtiq.forEach(id=>{ if(!formato && formatoPorEtiq[id]) formato = formatoPorEtiq[id]; });
+
+        const membro = (c.idMembers || []).map(id=> trelloQuadro.membros[id]).filter(Boolean)[0] || '';
+        const responsavel = nomesPeople.find(n=> n.toLowerCase() === String(membro).toLowerCase()) ||
+                            nomesPeople.find(n=> membro && n.toLowerCase().split(' ')[0] === String(membro).toLowerCase().split(' ')[0]) || '';
+
+        const jaExiste = posts.find(p=> p.trelloId && p.trelloId === c.id);
+
+        const item = {
+          trelloId: c.id,
+          url: c.shortUrl || c.url || '',
+          nomeOriginal: c.name || '',
+          date: dt ? dt.date : '',
+          horario: (dt && dt.horario) || (hn && hn.horario) || '09:00',
+          tema: limpaTema(c.name, [dt && dt.trecho, hn && hn.trecho]),
+          formato: formato || 'Feed',
+          status: statusPorLista[c.idList] || 'producao',
+          responsavel,
+          professor: profNoTexto((c.name || '') + ' ' + (c.desc || '')),
+          semData: !dt,
+          origemData: dt ? dt.origem : '',
+          repetido: !!jaExiste,
+          marcado: !!dt && !jaExiste,
+          tocado: false
+        };
+        if(antigo){
+          ['date','horario','tema','formato','status','responsavel','professor','marcado'].forEach(k=>{
+            if(antigo['edit_'+k] !== undefined) item[k] = antigo[k];
+          });
+          Object.keys(antigo).filter(k=> k.indexOf('edit_') === 0).forEach(k=>{ item[k] = antigo[k]; });
+          item.tocado = true;
+          item.semData = !item.date;
+        }
+        return item;
+      });
+
+    renderPreviewTrello();
+  }
+
+  function renderPreviewTrello(){
+    const body = $('#trelloPreview');
+    if(!body) return;
+    const mostraSemData = $('#trelloSemData').value === '1';
+    const visiveis = trelloItens.filter(it=> mostraSemData || !it.semData);
+
+    body.innerHTML = '';
+    if(!visiveis.length){
+      body.innerHTML = '<tr><td colspan="8" class="dash-empty" style="text-align:center;">Nenhum card com data. Troque "Cards sem data" pra <b>Mostrar</b> e preencha na mão, ou confira o de-para.</td></tr>';
+      atualizaContadorTrello();
+      return;
+    }
+
+    const optsPeople = '<option value="">Sem responsável</option>' +
+      people.map(p=> '<option value="'+escapeHtml(p.nome)+'">'+escapeHtml(p.nome)+'</option>').join('');
+    const optsProfs = '<option value="">Sem professor</option>' +
+      distinctProfs().map(n=> '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('');
+
+    visiveis.forEach(it=>{
+      const tr = document.createElement('tr');
+      tr.className = (it.marcado ? '' : 'fora') + (it.repetido ? ' repetido' : '');
+      tr.innerHTML =
+        '<td><div class="todo-check'+(it.marcado?' checked':'')+'">'+(it.marcado ? ICONS.check : '')+'</div></td>'+
+        '<td><input type="date" data-c="date" value="'+escapeHtml(it.date)+'">'+
+          (it.repetido ? '<div class="import-aviso">já importado antes</div>'
+            : (it.origemData === 'nome' ? '<div class="import-aviso">data lida do nome</div>' : ''))+'</td>'+
+        '<td><input type="time" data-c="horario" step="60" value="'+escapeHtml(it.horario)+'"></td>'+
+        '<td><input type="text" data-c="tema" value="'+escapeHtml(it.tema)+'"></td>'+
+        '<td><select class="mini-select" data-c="formato">'+
+          ['Feed','Reels','Story','Carrossel','Vídeo'].map(f=> '<option value="'+f+'"'+(it.formato===f?' selected':'')+'>'+f+'</option>').join('')+
+        '</select></td>'+
+        '<td><select class="mini-select" data-c="status">'+
+          STATUS_ORDER.map(st=> '<option value="'+st+'"'+(it.status===st?' selected':'')+'>'+STATUS_LABELS[st]+'</option>').join('')+
+        '</select></td>'+
+        '<td><select class="mini-select" data-c="responsavel">'+optsPeople+'</select></td>'+
+        '<td><select class="mini-select" data-c="professor">'+optsProfs+'</select></td>';
+
+      tr.querySelector('[data-c="responsavel"]').value = it.responsavel || '';
+      tr.querySelector('[data-c="professor"]').value = it.professor || '';
+
+      tr.querySelector('.todo-check').addEventListener('click', ()=>{
+        it.marcado = !it.marcado;
+        it.edit_marcado = true; it.tocado = true;
+        renderPreviewTrello();
+      });
+      tr.querySelectorAll('[data-c]').forEach(campo=>{
+        campo.addEventListener('change', (e)=>{
+          const k = campo.dataset.c;
+          it[k] = e.target.value;
+          it['edit_'+k] = true; it.tocado = true;
+          if(k === 'date'){ it.semData = !it.date; if(it.date && !it.repetido) it.marcado = true; }
+          atualizaContadorTrello();
+        });
+      });
+      body.appendChild(tr);
+    });
+    atualizaContadorTrello();
+  }
+
+  function atualizaContadorTrello(){
+    const n = trelloItens.filter(it=> it.marcado && it.date).length;
+    const el = $('#trelloCount');
+    if(el) el.textContent = n;
+  }
+
+  $('#btnTrelloColar').addEventListener('click', ()=>{
+    const txt = $('#trelloTexto').value.trim();
+    if(!txt){ toast(ICONS.alert + ' Cole o conteúdo do JSON aqui primeiro'); return; }
+    lerQuadroTrello(txt);
+  });
+  $('#trelloDrop').addEventListener('click', ()=> $('#trelloFile').click());
+  $('#trelloFile').addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const leitor = new FileReader();
+    leitor.onload = ()=> lerQuadroTrello(String(leitor.result || ''));
+    leitor.onerror = ()=> toast(ICONS.alert + ' Não consegui ler esse arquivo');
+    leitor.readAsText(f);
+    e.target.value = '';
+  });
+  ['#trelloAno','#trelloArquivados'].forEach(sel=>{
+    $(sel).addEventListener('change', ()=> montaItensTrello());
+  });
+  $('#trelloSemData').addEventListener('change', ()=> renderPreviewTrello());
+  $('#btnTrelloTodos').addEventListener('click', ()=>{
+    const mostraSemData = $('#trelloSemData').value === '1';
+    trelloItens.forEach(it=>{
+      if(!it.date) return;
+      if(!mostraSemData && it.semData) return;
+      it.marcado = true; it.edit_marcado = true; it.tocado = true;
+    });
+    renderPreviewTrello();
+  });
+  $('#btnTrelloNenhum').addEventListener('click', ()=>{
+    trelloItens.forEach(it=>{ it.marcado = false; it.edit_marcado = true; it.tocado = true; });
+    renderPreviewTrello();
+  });
+
+  $('#btnTrelloImportar').addEventListener('click', async ()=>{
+    if(currentUser && currentUser.permissao === 'Visualizador'){ toast(ICONS.alert + ' Visualizador não pode importar'); return; }
+    const escolhidos = trelloItens.filter(it=> it.marcado && it.date);
+    if(!escolhidos.length){ toast(ICONS.alert + ' Marque pelo menos um card com data'); return; }
+
+    const viraGravacao = $('#trelloGravar').value === '1';
+    let criados = 0, atualizados = 0;
+
+    escolhidos.forEach(it=>{
+      const dados = {
+        date: it.date,
+        horario: it.horario || '09:00',
+        formato: it.formato || 'Feed',
+        tema: it.tema || it.nomeOriginal || 'Sem tema',
+        responsavel: it.responsavel || '',
+        status: it.status || 'producao',
+        professor: it.professor || '',
+        referencia: it.url || '',
+        gravado: isVideoFmt(it.formato) ? !viraGravacao : false
+      };
+      const existente = posts.find(p=> p.trelloId && p.trelloId === it.trelloId);
+      if(existente){
+        Object.assign(existente, dados);
+        atualizados++;
+      } else {
+        posts.push(Object.assign({
+          id: uid(), trelloId: it.trelloId, texto: '', arte: '',
+          carrosselTipo: '', reelsTipo: '', anexos: []
+        }, dados));
+        criados++;
+      }
+    });
+
+    await savePosts();
+
+    // vídeos/reels marcados como "a gravar" viram obrigatórias no checklist
+    if(viraGravacao){
+      let novosCards = 0;
+      escolhidos.forEach(it=>{
+        const post = posts.find(p=> p.trelloId === it.trelloId);
+        if(!post || !isVideoFmt(post.formato) || post.formato === 'Story' || post.gravado) return;
+        if(cards.some(c=> c.fromPostId === post.id)) return;
+        cards.push({ id: uid(), tema: post.tema, prof: post.professor || '', profs: post.professor ? [post.professor] : [],
+                     ref: post.referencia || '', copy: '', status: 'a-gravar', fromPostId: post.id,
+                     formato: post.formato, local: '', dataPostagem: post.date, etapa: post.status || 'producao' });
+        novosCards++;
+      });
+      if(novosCards) await saveCards();
+    }
+
+    renderCalendar(); renderKanban(); renderChecklist(); renderPostsPorProf(); updateBadges();
+    montaItensTrello();
+    toast(ICONS.check + ' ' + criados + ' post' + (criados===1?'':'s') + ' importado' + (criados===1?'':'s') +
+      (atualizados ? ' · ' + atualizados + ' atualizado' + (atualizados===1?'':'s') : ''));
+  });
+
   // ---------- PERMISSÕES ----------
   function applyPermissions(){
     if(!currentUser) return;
@@ -6601,7 +7124,7 @@
     const isViewer = currentUser.permissao === 'Visualizador';
     $('#navTeam').classList.toggle('perm-hidden', !isAdmin);
     $('#btnNewPerson').classList.toggle('perm-hidden', !isAdmin);
-    ['#btnTodayCal','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro','#btnNewSolic','#btnNewProjeto','#btnNewStory','#btnNewModelo'].forEach(sel=>{
+    ['#btnTodayCal','#btnNewStudio','#btnAddChecklistExtra','#btnNewProfCard','#btnNewEvento','#btnNewOutro','#btnNewProfessor','#btnNewRoteiro','#btnNewSolic','#btnNewProjeto','#btnNewStory','#btnNewModelo','#btnTrelloImportar'].forEach(sel=>{
       const el = $(sel);
       if(el) el.classList.toggle('perm-hidden', isViewer);
     });
