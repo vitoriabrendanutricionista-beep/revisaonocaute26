@@ -678,6 +678,10 @@
     text-align:center; padding:10px 4px; border-left:1px solid var(--w060);
   }
   .studio-daycol-head .dname{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--ink-dim);}
+  .studio-daycol-head .dmes{font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--violet); margin-top:1px;}
+  .studio-daycol-head.fds .dname{ opacity:.65; }
+  .studio-daycol-head.inicio-semana, .studio-cell.inicio-semana{ border-left:2px solid var(--w140); }
+  .studio-cell.fds{ background-color:var(--w030); }
   .studio-daycol-head .ddate{font-size:15px; font-weight:700; margin-top:2px;}
   .studio-daycol-head.is-today .ddate{ color:var(--violet); }
   .studio-hour-label{
@@ -1590,12 +1594,13 @@
       <div class="topbar">
         <div class="title-block">
           <h1>Cronograma de Estúdio</h1>
-          <p>Clique em um horário para agendar gravação, live ou aula.</p>
+          <p>Role de lado pra andar no calendário, sem parar na semana. Clique num horário pra agendar.</p>
         </div>
         <div style="display:flex; align-items:center; gap:14px;">
           <div class="filter-bar">
             <select class="filter-select" id="filterStudioProf"><option value="">Todos os profs</option></select>
           </div>
+          <button class="btn btn-ghost" id="btnStudioHoje">Hoje</button>
           <div class="month-nav">
             <button id="prevWeek">‹</button>
             <div class="month-label" id="weekLabel"></div>
@@ -2698,6 +2703,8 @@
   let currentUser = null;
   let currentMonth = new Date(); currentMonth.setDate(1);
   let currentWeekStart = getWeekStart(new Date());
+  let studioInicio = null;        // primeiro dia renderizado na grade do estúdio
+  let studioAjustando = false;    // trava pra janela não andar duas vezes seguidas
   let editingPostId = null;
   let editingPostDate = null;
   let editingCardId = null;
@@ -3911,41 +3918,182 @@
     return (v === '24:00' || toMin(v) >= 1440) ? '23:59' : minLabel(toMin(v));
   }
 
-  function renderStudio(){
-    const weekDates = [];
-    for(let i=0;i<7;i++){
-      const d = new Date(currentWeekStart);
-      d.setDate(d.getDate()+i);
-      weekDates.push(d);
+  // A grade não para mais na semana: ela renderiza uma janela de vários dias e,
+  // quando você chega perto da borda rolando, a janela anda sozinha. Na prática
+  // dá pra passear pelo calendário inteiro sem clicar em nada.
+  const STUDIO_JANELA = 63;   // dias desenhados de uma vez (9 semanas)
+  const STUDIO_PASSO  = 14;   // quantos dias a janela anda ao chegar perto da ponta
+
+  const estudioEstreito = ()=> !!(window.matchMedia && window.matchMedia('(max-width:880px)').matches);
+  const studioColW    = ()=> estudioEstreito() ? 112 : 150;
+  const studioRotuloW = ()=> estudioEstreito() ? 52 : 64;
+  const caixaEstudio  = ()=> document.querySelector('.studio-scroll');
+
+  function diasEntre(a, b){
+    const d1 = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    const d2 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    return Math.round((d2 - d1) / 86400000);
+  }
+
+  // clicar/arrastar na grade funciona por delegação — com 1500 células,
+  // um listener por célula deixaria a rolagem pesada
+  function ligaGradeEstudio(grid){
+    if(grid._delegado) return;
+    grid._delegado = true;
+
+    grid.addEventListener('click', (e)=>{
+      const cell = e.target.closest('.studio-cell');
+      if(!cell) return;
+      const r = cell.getBoundingClientRect();
+      const frac = (r.height > 0 && typeof e.clientY === 'number') ? (e.clientY - r.top) / r.height : 0;
+      const quarto = Math.min(3, Math.max(0, Math.floor(frac * 4)));
+      openStudioModal(cell.dataset.date, minLabel(parseInt(cell.dataset.hora, 10)*60 + quarto*15), null);
+    });
+    grid.addEventListener('dragover', (e)=>{
+      const cell = e.target.closest('.studio-cell');
+      if(cell && draggedStudioId){ e.preventDefault(); cell.classList.add('dragover'); }
+    });
+    grid.addEventListener('dragleave', (e)=>{
+      const cell = e.target.closest('.studio-cell');
+      if(cell) cell.classList.remove('dragover');
+    });
+    grid.addEventListener('drop', async (e)=>{
+      const cell = e.target.closest('.studio-cell');
+      if(!cell) return;
+      e.preventDefault();
+      cell.classList.remove('dragover');
+      if(!draggedStudioId) return;
+      const ev = studioEvents.find(x=> x.id === draggedStudioId);
+      if(!ev) return;
+      const iniMin = toMin(ev.start);
+      const durMin = Math.max(15, toMin(ev.end) - iniMin);
+      let novoIni = parseInt(cell.dataset.hora, 10)*60 + (iniMin % 60);
+      if(novoIni + durMin > 1440) novoIni = 1440 - durMin;
+      ev.date = cell.dataset.date;
+      ev.start = minLabel(novoIni);
+      ev.end = minLabel(novoIni + durMin);
+      draggedStudioId = null;
+      await saveStudioEvents();
+      renderStudio();
+      updateBadges();
+    });
+  }
+
+  function atualizaLabelEstudio(){
+    const box = caixaEstudio();
+    const alvo = $('#weekLabel');
+    if(!box || !alvo || !studioInicio) return;
+    const colW = studioColW(), rotuloW = studioRotuloW();
+    const idx = Math.max(0, Math.min(STUDIO_JANELA-1, Math.floor(box.scrollLeft / colW)));
+    const cabem = Math.max(1, Math.round((box.clientWidth - rotuloW) / colW));
+    const ini = new Date(studioInicio); ini.setDate(ini.getDate() + idx);
+    const fim = new Date(studioInicio); fim.setDate(fim.getDate() + Math.min(STUDIO_JANELA-1, idx + cabem - 1));
+    alvo.textContent = (ini.getMonth() === fim.getMonth() && ini.getFullYear() === fim.getFullYear())
+      ? ini.getDate() + ' – ' + fim.getDate() + ' de ' + MONTHS[ini.getMonth()]
+      : ini.getDate() + ' ' + MONTHS[ini.getMonth()].slice(0,3) + ' – ' + fim.getDate() + ' ' + MONTHS[fim.getMonth()].slice(0,3);
+  }
+
+  // chegou perto da ponta? a janela desliza e o scroll é corrigido no mesmo passo,
+  // então visualmente nada pula
+  function ajustaJanelaEstudio(){
+    const box = caixaEstudio();
+    if(!box || studioAjustando || !renderStudio._pronto) return;
+    if(!box.clientWidth) return;                       // container ainda não mediu
+    const colW = studioColW(), rotuloW = studioRotuloW();
+    const total = rotuloW + STUDIO_JANELA*colW;
+    const margem = colW * 4;
+    if(total <= box.clientWidth + margem*2) return;    // cabe tudo na tela: nada a deslizar
+
+    if(box.scrollLeft < margem){
+      studioAjustando = true;
+      studioInicio.setDate(studioInicio.getDate() - STUDIO_PASSO);
+      renderStudio(box.scrollLeft + STUDIO_PASSO*colW);
+      studioAjustando = false;
+    } else if(box.scrollLeft + box.clientWidth > total - margem){
+      studioAjustando = true;
+      studioInicio.setDate(studioInicio.getDate() + STUDIO_PASSO);
+      renderStudio(Math.max(0, box.scrollLeft - STUDIO_PASSO*colW));
+      studioAjustando = false;
     }
-    const first = weekDates[0], last = weekDates[6];
-    const sameMonth = first.getMonth() === last.getMonth();
-    const label = sameMonth
-      ? first.getDate()+' – '+last.getDate()+' de '+MONTHS[first.getMonth()]
-      : first.getDate()+' '+MONTHS[first.getMonth()].slice(0,3)+' – '+last.getDate()+' '+MONTHS[last.getMonth()].slice(0,3);
-    $('#weekLabel').textContent = label;
+  }
+
+  function rolaEstudio(dias){
+    const box = caixaEstudio();
+    if(!box) return;
+    const destino = Math.max(0, box.scrollLeft + dias*studioColW());
+    if(box.scrollTo) box.scrollTo({ left: destino, behavior: 'smooth' });
+    else box.scrollLeft = destino;
+  }
+
+  function irParaHojeEstudio(suave){
+    const box = caixaEstudio();
+    if(!box) return;
+    const hoje = new Date();
+    let idx = diasEntre(studioInicio, hoje);
+    // se hoje ficou fora (ou na beirada) da janela, recentraliza a janela antes
+    if(idx < 3 || idx > STUDIO_JANELA - 10){
+      studioInicio = getWeekStart(hoje);
+      studioInicio.setDate(studioInicio.getDate() - 28);
+      renderStudio(0);
+      idx = diasEntre(studioInicio, hoje);
+    }
+    const colW = studioColW(), rotuloW = studioRotuloW();
+    const sobra = Math.max(0, (box.clientWidth - rotuloW - colW) / 2);
+    const destino = Math.max(0, idx*colW - sobra);
+    if(box.scrollTo) box.scrollTo({ left: destino, behavior: suave ? 'smooth' : 'auto' });
+    else box.scrollLeft = destino;
+    atualizaLabelEstudio();
+  }
+
+  function renderStudio(manterScroll){
+    if(!studioInicio){
+      studioInicio = getWeekStart(new Date());
+      studioInicio.setDate(studioInicio.getDate() - 28);   // já nasce com passado pra trás
+    }
+
+    const dias = [];
+    for(let i=0; i<STUDIO_JANELA; i++){
+      const d = new Date(studioInicio);
+      d.setDate(d.getDate() + i);
+      dias.push(d);
+    }
 
     const grid = $('#studioGrid');
-    grid.innerHTML = '';
-    grid.style.gridTemplateRows = '46px repeat(24, 52px)';
+    if(!grid) return;
+    const box = caixaEstudio();
+    const scrollAntes = box ? box.scrollLeft : 0;
+    const topoAntes   = box ? box.scrollTop : 0;
 
-    // corner
+    const colW = studioColW(), rotuloW = studioRotuloW();
+    ligaGradeEstudio(grid);
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = rotuloW + 'px repeat(' + STUDIO_JANELA + ', ' + colW + 'px)';
+    grid.style.gridTemplateRows = '46px repeat(24, 52px)';
+    grid.style.minWidth = (rotuloW + STUDIO_JANELA*colW) + 'px';
+
     const corner = document.createElement('div');
     corner.className = 'studio-corner';
     grid.appendChild(corner);
 
     const todayStr = fmtDateFromObj(new Date());
 
-    // day headers
-    weekDates.forEach(d=>{
-      const head = document.createElement('div');
+    // cabeçalho de cada dia
+    dias.forEach(d=>{
       const dstr = fmtDateFromObj(d);
-      head.className = 'studio-daycol-head' + (dstr===todayStr ? ' is-today' : '');
-      head.innerHTML = '<div class="dname">'+WEEKDAY_NAMES[d.getDay()]+'</div><div class="ddate">'+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'</div>';
+      const head = document.createElement('div');
+      head.className = 'studio-daycol-head'
+        + (dstr === todayStr ? ' is-today' : '')
+        + (d.getDay() === 0 ? ' inicio-semana' : '')
+        + (d.getDay() === 0 || d.getDay() === 6 ? ' fds' : '');
+      const mostraMes = (d.getDate() === 1) || (dias[0] === d);
+      head.innerHTML =
+        '<div class="dname">' + WEEKDAY_NAMES[d.getDay()] + '</div>' +
+        '<div class="ddate">' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '</div>' +
+        (mostraMes ? '<div class="dmes">' + MONTHS[d.getMonth()].slice(0,3) + '</div>' : '');
       grid.appendChild(head);
     });
 
-    // hour rows: label + 7 cells
+    // linhas de hora
     for(let h=0; h<24; h++){
       const label = document.createElement('div');
       label.className = 'studio-hour-label';
@@ -3954,55 +4102,33 @@
       label.textContent = hourLabel(h);
       grid.appendChild(label);
 
-      weekDates.forEach((d,dayIdx)=>{
+      dias.forEach((d, dayIdx)=>{
         const cell = document.createElement('div');
-        cell.className = 'studio-cell';
+        cell.className = 'studio-cell'
+          + (d.getDay() === 0 ? ' inicio-semana' : '')
+          + (d.getDay() === 0 || d.getDay() === 6 ? ' fds' : '');
         cell.style.gridColumn = (dayIdx+2);
         cell.style.gridRow = (h+2);
-        const cellDate = fmtDateFromObj(d), cellHour = h;
-        // clicar no meio da faixa já abre no quarto de hora correspondente (:00, :15, :30, :45)
-        cell.addEventListener('click', (e)=>{
-          const r = cell.getBoundingClientRect();
-          const frac = (r.height > 0 && typeof e.clientY === 'number') ? (e.clientY - r.top) / r.height : 0;
-          const quarto = Math.min(3, Math.max(0, Math.floor(frac * 4)));
-          openStudioModal(cellDate, minLabel(cellHour*60 + quarto*15), null);
-        });
-        cell.addEventListener('dragover', (e)=>{ if(draggedStudioId){ e.preventDefault(); cell.classList.add('dragover'); } });
-        cell.addEventListener('dragleave', ()=> cell.classList.remove('dragover'));
-        cell.addEventListener('drop', async (e)=>{
-          e.preventDefault(); cell.classList.remove('dragover');
-          if(!draggedStudioId) return;
-          const ev = studioEvents.find(x=>x.id===draggedStudioId);
-          if(!ev) return;
-          const iniMin = toMin(ev.start);
-          const durMin = Math.max(15, toMin(ev.end) - iniMin);
-          let novoIni = cellHour*60 + (iniMin % 60);   // mantém o minuto quebrado do evento
-          if(novoIni + durMin > 1440) novoIni = 1440 - durMin;
-          ev.date = cellDate;
-          ev.start = minLabel(novoIni);
-          ev.end = minLabel(novoIni + durMin);
-          draggedStudioId = null;
-          await saveStudioEvents();
-          renderStudio();
-          updateBadges();
-        });
+        cell.dataset.date = fmtDateFromObj(d);
+        cell.dataset.hora = h;
         grid.appendChild(cell);
       });
     }
 
     // eventos — um overlay por dia, com faixas lado a lado p/ horários sobrepostos
     const HH = 52; // altura de 1 hora (px)
-    weekDates.forEach((d, dayIdx)=>{
+    dias.forEach((d, dayIdx)=>{
+      const dstr = fmtDateFromObj(d);
+      const dayEvs = studioEvents
+        .filter(ev=> ev.date === dstr && (!filterStudioProf || profsDoEvento(ev).includes(filterStudioProf)))
+        .map(ev=>({ ev, startH: toMin(ev.start), endH: Math.max(toMin(ev.start)+15, toMin(ev.end)) }))
+        .sort((a,b)=> a.startH - b.startH || a.endH - b.endH);
+      if(!dayEvs.length) return;   // dia vazio não precisa de overlay
+
       const col = document.createElement('div');
       col.className = 'studio-daycol';
       col.style.gridColumn = (dayIdx+2);
       col.style.gridRow = '2 / span 24';
-
-      const dstr = fmtDateFromObj(d);
-      const dayEvs = studioEvents
-        .filter(ev=> ev.date===dstr && (!filterStudioProf || profsDoEvento(ev).includes(filterStudioProf)))
-        .map(ev=>({ ev, startH: toMin(ev.start), endH: Math.max(toMin(ev.start)+15, toMin(ev.end)) }))
-        .sort((a,b)=> a.startH - b.startH || a.endH - b.endH);
 
       // agrupa em clusters de sobreposição e distribui em faixas (colunas)
       const layout = new Map(); // id -> {lane, lanes}
@@ -4060,26 +4186,36 @@
       grid.appendChild(col);
     });
 
-    // na primeira vez, cai no horário comercial e na coluna de hoje
-    if(!renderStudio._scrolled){
-      renderStudio._scrolled = true;
-      const scrollBox = document.querySelector('.studio-scroll');
-      if(scrollBox){
-        scrollBox.scrollTop = 7 * 52;
-        const hojeIdx = weekDates.findIndex(d=> fmtDateFromObj(d) === todayStr);
-        if(hojeIdx > -1){
-          const colunaHoje = grid.querySelector('.studio-daycol-head:nth-of-type(' + (hojeIdx+1) + ')');
-          const larguraCol = colunaHoje ? colunaHoje.offsetWidth : 150;
-          const rotulo = 64;
-          const alvo = rotulo + hojeIdx*larguraCol - Math.max(0, (scrollBox.clientWidth - rotulo - larguraCol) / 2);
-          scrollBox.scrollLeft = Math.max(0, alvo);
-        }
+    // redesenhar zera o scroll: devolve pro lugar em que a pessoa estava
+    if(box){
+      box.scrollLeft = (typeof manterScroll === 'number') ? manterScroll : scrollAntes;
+      box.scrollTop = topoAntes;
+      if(!box._rolagemLigada){
+        box._rolagemLigada = true;
+        let travado = false;
+        box.addEventListener('scroll', ()=>{
+          if(travado) return;
+          travado = true;
+          requestAnimationFrame(()=>{
+            travado = false;
+            atualizaLabelEstudio();
+            ajustaJanelaEstudio();
+          });
+        }, { passive: true });
       }
     }
+
+    if(!renderStudio._pronto){
+      renderStudio._pronto = true;
+      if(box) box.scrollTop = 7 * 52;   // abre no horário comercial
+      irParaHojeEstudio(false);
+    }
+    atualizaLabelEstudio();
   }
 
-  $('#prevWeek').addEventListener('click', ()=>{ currentWeekStart.setDate(currentWeekStart.getDate()-7); renderStudio(); });
-  $('#nextWeek').addEventListener('click', ()=>{ currentWeekStart.setDate(currentWeekStart.getDate()+7); renderStudio(); });
+  $('#prevWeek').addEventListener('click', ()=> rolaEstudio(-7));
+  $('#nextWeek').addEventListener('click', ()=> rolaEstudio(7));
+  $('#btnStudioHoje').addEventListener('click', ()=> irParaHojeEstudio(true));
   $('#btnNewStudio').addEventListener('click', ()=>{
     openStudioModal(fmtDateFromObj(new Date()), '09:00', null);
   });
