@@ -781,6 +781,9 @@
   .import-tabela input:focus{ border-color:var(--violet); }
   .import-tabela .mini-select{ width:100%; }
   .import-aviso{ font-size:10.5px; color:var(--amber); margin-top:3px; }
+  .day-cell.fora-periodo{ opacity:.22; }
+  .day-cell.fora-periodo .chip-add-hint{ display:none; }
+  .btn-limpa-periodo{ padding:8px 12px; font-size:12px; }
   .cal-resumo{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .cal-resumo span{ font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:20px; background:var(--w080); border:1px solid var(--panel-border); color:var(--ink-soft); }
   .check-add-opts{ display:flex; flex-wrap:wrap; gap:22px; margin-top:14px; }
@@ -1609,6 +1612,13 @@
         <div style="display:flex; align-items:center; gap:14px;">
           <div class="filter-bar">
             <select class="filter-select" id="filterCalResp"><option value="">Todos os responsáveis</option></select>
+            <select class="filter-select" id="filterCalPeriodo">
+              <option value="mes">Mês inteiro</option>
+              <option value="semana">Uma semana</option>
+              <option value="dia">Um dia só</option>
+            </select>
+            <input type="date" class="filter-select" id="filterCalData" style="display:none;">
+            <button class="btn btn-ghost btn-limpa-periodo" id="btnLimpaPeriodo" style="display:none;">Limpar</button>
           </div>
           <div class="month-nav">
             <button id="prevMonth">‹</button>
@@ -2873,6 +2883,8 @@
   let currentWeekStart = getWeekStart(new Date());
   let studioInicio = null;        // primeiro dia renderizado na grade do estúdio
   let studioAjustando = false;    // trava pra janela não andar duas vezes seguidas
+  let filterCalPeriodo = 'mes';   // mes | semana | dia
+  let filterCalData = '';         // âncora do recorte quando não é o mês inteiro
   let trelloQuadro = null;        // JSON exportado do Trello, já digerido
   let trelloItens = [];           // uma linha da prévia por card
   let editingPostId = null;
@@ -3568,6 +3580,68 @@
 
   $('#filterStudioProf').addEventListener('change', (e)=>{ filterStudioProf = e.target.value; renderStudio(); });
   $('#filterCalResp').addEventListener('change', (e)=>{ filterCalResp = e.target.value; renderCalendar(); });
+
+  // ---- recorte por dia / semana / mês ----
+  // não muda o desenho do calendário: o mês continua inteiro na tela,
+  // só que os dias fora do recorte ficam apagados e sem chips.
+  function periodoAtivo(){ return filterCalPeriodo !== 'mes' && !!filterCalData; }
+
+  function faixaDoPeriodo(){
+    if(!periodoAtivo()) return null;
+    const [ay, am, ad] = filterCalData.split('-').map(Number);
+    const base = new Date(ay, am-1, ad);
+    if(filterCalPeriodo === 'dia') return { ini: filterCalData, fim: filterCalData };
+    const ini = getWeekStart(base);
+    const fim = new Date(ini); fim.setDate(fim.getDate() + 6);
+    return { ini: fmtDateFromObj(ini), fim: fmtDateFromObj(fim) };
+  }
+
+  function dentroDoPeriodo(dateStr){
+    const f = faixaDoPeriodo();
+    if(!f) return true;
+    return dateStr >= f.ini && dateStr <= f.fim;
+  }
+
+  function sincronizaControlesPeriodo(){
+    const campoData = $('#filterCalData');
+    const btnLimpa = $('#btnLimpaPeriodo');
+    const precisaData = filterCalPeriodo !== 'mes';
+    campoData.style.display = precisaData ? '' : 'none';
+    btnLimpa.style.display = precisaData ? '' : 'none';
+    campoData.value = filterCalData;
+    campoData.title = filterCalPeriodo === 'dia' ? 'Escolha o dia' : 'Escolha um dia da semana que você quer ver';
+  }
+
+  $('#filterCalPeriodo').addEventListener('change', (e)=>{
+    filterCalPeriodo = e.target.value;
+    if(filterCalPeriodo !== 'mes' && !filterCalData) filterCalData = fmtDateFromObj(new Date());
+    sincronizaControlesPeriodo();
+    pulaPraDataDoFiltro();
+    renderCalendar();
+  });
+  $('#filterCalData').addEventListener('change', (e)=>{
+    filterCalData = e.target.value;
+    pulaPraDataDoFiltro();
+    renderCalendar();
+  });
+  $('#btnLimpaPeriodo').addEventListener('click', ()=>{
+    filterCalPeriodo = 'mes';
+    filterCalData = '';
+    $('#filterCalPeriodo').value = 'mes';
+    sincronizaControlesPeriodo();
+    renderCalendar();
+  });
+
+  // se a data escolhida estiver em outro mês, o calendário vai junto
+  function pulaPraDataDoFiltro(){
+    if(!periodoAtivo()) return;
+    // usa o mês do dia escolhido, não o do domingo da semana — senão pedir a
+    // semana do dia 3 jogaria o calendário pro mês anterior
+    const [ay, am] = filterCalData.split('-').map(Number);
+    if(currentMonth.getFullYear() !== ay || currentMonth.getMonth() !== am-1){
+      currentMonth = new Date(ay, am-1, 1);
+    }
+  }
   $('#filterKanbanResp').addEventListener('change', (e)=>{ filterKanbanResp = e.target.value; renderKanban(); });
   $('#filterPPProf').addEventListener('change', (e)=>{ filterPPProf = e.target.value; renderPostsPorProf(); });
   $('#filterPPStatus').addEventListener('change', (e)=>{ filterPPStatus = e.target.value; renderPostsPorProf(); });
@@ -3669,7 +3743,9 @@
         dateStr = fmtDate(y,m,dayNum);
       }
 
-      cell.className = 'day-cell' + (isPad ? ' pad' : '') + (dateStr===todayStr ? ' today' : '');
+      const noRecorte = isPad ? false : dentroDoPeriodo(dateStr);
+      cell.className = 'day-cell' + (isPad ? ' pad' : '') + (dateStr===todayStr ? ' today' : '')
+        + (!isPad && !noRecorte ? ' fora-periodo' : '');
       const numEl = document.createElement('div');
       numEl.className='day-num';
       numEl.innerHTML = '<span>'+dayNum+'</span>';
@@ -3682,7 +3758,7 @@
 
       if(!isPad){
         cell.dataset.date = dateStr;
-        const dayPosts = posts.filter(p=> p.date===dateStr && (!filterCalResp || p.responsavel===filterCalResp)).sort((a,b)=> a.horario.localeCompare(b.horario));
+        const dayPosts = (noRecorte ? posts : []).filter(p=> p.date===dateStr && (!filterCalResp || p.responsavel===filterCalResp)).sort((a,b)=> a.horario.localeCompare(b.horario));
         dayPosts.forEach(p=>{
           const chip = document.createElement('div');
           chip.className = 'chip' + (p.status==='postado' ? ' feito' : '');
@@ -3718,7 +3794,7 @@
           lista.appendChild(chip);
         });
         // acontecimentos do dia
-        const dayEventos = eventos
+        const dayEventos = (noRecorte ? eventos : [])
           .filter(ev=> ev.date===dateStr && (!filterCalResp || ev.responsavel===filterCalResp))
           .sort((a,b)=> (a.horaInicio||'').localeCompare(b.horaInicio||''));
         dayEventos.forEach(ev=>{
@@ -3732,7 +3808,7 @@
           lista.appendChild(chip);
         });
         // cronograma de stories do dia
-        stories.filter(st=> st.date===dateStr).forEach(st=>{
+        (noRecorte ? stories : []).filter(st=> st.date===dateStr).forEach(st=>{
           const chip = document.createElement('div');
           chip.className = 'chip story';
           chip.innerHTML = '<span class="ev-ic">'+ICONS.story+'</span>'+
@@ -3798,13 +3874,22 @@
     const resumo = $('#calResumo');
     if(resumo){
       const mesStr = y+'-'+String(m+1).padStart(2,'0');
-      const doMes = posts.filter(p=> p.date && p.date.startsWith(mesStr) && (!filterCalResp || p.responsavel===filterCalResp));
-      const nPost = doMes.filter(p=> p.status==='postado').length;
-      const nPend = doMes.length - nPost;
+      const faixa = faixaDoPeriodo();
+      const noRecorteLista = posts.filter(p=>{
+        if(!p.date) return false;
+        if(filterCalResp && p.responsavel !== filterCalResp) return false;
+        return faixa ? (p.date >= faixa.ini && p.date <= faixa.fim) : p.date.startsWith(mesStr);
+      });
+      const nPost = noRecorteLista.filter(p=> p.status==='postado').length;
+      const nPend = noRecorteLista.length - nPost;
+      const ondeLabel = !faixa ? ' no mês'
+        : (filterCalPeriodo === 'dia' ? ' em ' + formatDatePt(faixa.ini)
+                                      : ' na semana de ' + formatDatePt(faixa.ini) + ' a ' + formatDatePt(faixa.fim));
       resumo.innerHTML =
-        '<span>'+doMes.length+(doMes.length===1?' post no mês':' posts no mês')+'</span>'+
+        '<span>'+noRecorteLista.length+(noRecorteLista.length===1?' post':' posts')+ondeLabel+'</span>'+
         '<span>'+nPost+(nPost===1?' postado':' postados')+'</span>'+
-        '<span>'+nPend+(nPend===1?' ainda não postado':' ainda não postados')+'</span>';
+        '<span>'+nPend+(nPend===1?' ainda não postado':' ainda não postados')+'</span>'+
+        (faixa ? '<span style="border-color:var(--violet); color:var(--ink);">recorte ativo</span>' : '');
     }
   }
 
