@@ -2152,8 +2152,9 @@
       <select class="status-select" id="postResponsavel"></select>
     </div>
     <div class="field" id="postProfRow">
-      <label>Professor</label>
-      <select class="status-select" id="postProfessor"></select>
+      <label>Professores</label>
+      <div class="format-picker" id="postProfPicker"></div>
+      <div style="font-size:11.5px; color:var(--ink-faint); margin-top:7px;">Dá pra marcar mais de um — o post aparece na aba de cada professor marcado.</div>
     </div>
     <div class="field" id="postArteRow">
       <label>Arte pronta (link)</label>
@@ -2888,6 +2889,7 @@
   let trelloQuadro = null;        // JSON exportado do Trello, já digerido
   let trelloItens = [];           // uma linha da prévia por card
   let editingPostId = null;
+  let selectedPostProfs = [];
   let editingPostDate = null;
   let editingCardId = null;
   let editingStudioId = null;
@@ -2976,6 +2978,8 @@
     return m ? m[1] : null;
   }
   // ---------- SYNC INCREMENTAL ----------
+  const BUILD_SYNC = 'sync v2 + multi-prof + posts de foto no checklist';
+  console.log('%c[Revisão Nocaute] ' + BUILD_SYNC, 'background:#a400ff;color:#fff;padding:2px 6px;border-radius:4px');
   // Antes: todo save reenviava a tabela inteira e mandava um DELETE com "id not in (todos os ids)".
   // Com 149 posts (alguns com imagem em base64) isso estourava o statement timeout do Postgres.
   // Agora guardamos uma "foto" do que já está salvo e mandamos só o que mudou.
@@ -2998,30 +3002,84 @@
     _snapshot[table] = m;
   }
 
+  // o statement timeout do Supabase (role anon) é de ~3s. Lote grande demais = timeout.
+  // por isso o corte é por BYTES, não por número de linhas: uma linha com imagem em
+  // base64 pesa o mesmo que centenas de linhas de texto.
+  const MAX_LOTE_BYTES = 250 * 1024;
+  const MAX_LOTE_LINHAS = 25;
+
   function _chunk(arr, n){
     const out = [];
     for(let i=0; i<arr.length; i+=n) out.push(arr.slice(i, i+n));
     return out;
   }
 
-  async function _upsertLote(table, payload){
+  // divide as linhas em lotes que caibam no orçamento de bytes
+  function _lotesPorPeso(rows){
+    const lotes = [];
+    let atual = [], peso = 0;
+    for(const r of rows){
+      const b = JSON.stringify(r).length;
+      // linha gorda sozinha (imagem base64) vai num lote só dela
+      if(b >= MAX_LOTE_BYTES){
+        if(atual.length){ lotes.push(atual); atual = []; peso = 0; }
+        lotes.push([r]);
+        continue;
+      }
+      if(peso + b > MAX_LOTE_BYTES || atual.length >= MAX_LOTE_LINHAS){
+        lotes.push(atual); atual = []; peso = 0;
+      }
+      atual.push(r); peso += b;
+    }
+    if(atual.length) lotes.push(atual);
+    return lotes;
+  }
+
+  const _ehTimeout = txt => /statement timeout|canceling statement|57014|timeout/i.test(txt);
+
+  async function _postLote(table, payload){
+    let corpo = payload;
     for(let attempt=0; attempt<5; attempt++){
       const res = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
         method: 'POST',
         headers: dbHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(corpo)
       });
-      if(res.ok) return payload;
+      if(res.ok) return corpo;
       const txt = await res.text();
       const col = missingColumnFrom(txt);
       // coluna que ainda não existe no schema: remove e tenta de novo (degrada com elegância)
-      if(col && payload.some(r=> Object.prototype.hasOwnProperty.call(r, col))){
-        payload = payload.map(r=>{ const c={...r}; delete c[col]; return c; });
+      if(col && corpo.some(r=> Object.prototype.hasOwnProperty.call(r, col))){
+        corpo = corpo.map(r=>{ const c={...r}; delete c[col]; return c; });
         continue;
       }
-      throw new Error(table + ': ' + txt);
+      const err = new Error(table + ': ' + txt);
+      err.timeout = _ehTimeout(txt);
+      throw err;
     }
     throw new Error(table + ': não deu pra salvar depois de 5 tentativas');
+  }
+
+  // se mesmo assim der timeout, parte o lote no meio e tenta de novo (até 1 linha por vez)
+  async function _upsertLote(table, payload){
+    try{
+      return await _postLote(table, payload);
+    }catch(e){
+      if(e.timeout && payload.length > 1){
+        const meio = Math.ceil(payload.length / 2);
+        console.warn('[sync] timeout em ' + table + ' com ' + payload.length + ' linhas — dividindo o lote');
+        const a = await _upsertLote(table, payload.slice(0, meio));
+        const b = await _upsertLote(table, payload.slice(meio));
+        return a.concat(b);
+      }
+      if(e.timeout && payload.length === 1){
+        const kb = (JSON.stringify(payload[0]).length / 1024).toFixed(0);
+        e.message = 'a linha "' + (payload[0].tema || payload[0].nome || payload[0].id)
+          + '" tem ' + kb + ' KB e não passa no tempo limite do banco. '
+          + 'Provavelmente é um anexo em base64 antigo — reanexe o arquivo pra ele ir pro Storage.';
+      }
+      throw e;
+    }
   }
 
   async function _deleteIds(table, ids){
@@ -3038,7 +3096,7 @@
 
     // sem foto anterior (primeiro save antes de carregar): sobe tudo, mas sem o DELETE gigante
     if(!antes){
-      for(const lote of _chunk(rows, 40)) await _upsertLote(table, lote);
+      for(const lote of _lotesPorPeso(rows)) await _upsertLote(table, lote);
       seedSnapshot(table, rows);
       return;
     }
@@ -3056,7 +3114,8 @@
     // nada mudou: sai na hora (isso sozinho mata os saves duplicados por clique)
     if(!mudou.length && !removidos.length) return;
 
-    for(const lote of _chunk(mudou, 40)){
+    console.log('[sync] ' + table + ': ' + mudou.length + ' alterada(s), ' + removidos.length + ' removida(s)');
+    for(const lote of _lotesPorPeso(mudou)){
       const salvos = await _upsertLote(table, lote);
       // atualiza a foto lote a lote: se o próximo falhar, o que já subiu continua marcado
       for(const r of salvos) antes.set(r.id, agora.get(r.id));
@@ -3080,6 +3139,10 @@
     if(!c) return [];
     const l = listaDeTextos(c.profs);
     return l.length ? l : listaDeTextos(c.prof);
+  }
+  function profsDoPost(p){
+    if(!p) return [];
+    return listaDeTextos(p.professor);
   }
   function profsDoEvento(ev){
     if(!ev) return [];
@@ -3465,9 +3528,8 @@
       if(isVideoFmt(p.formato)){
         // card vinculado é a fonte da verdade: tem card = pra gravar; sem card = já gravado
         p.gravado = !cards.some(c=> c.fromPostId === p.id);
-      } else {
-        p.gravado = false;
       }
+      // formato de foto: o "gravado" vira "já fotografado" e é mantido como está no banco
     });
     renderCalendar();
     renderStudio();
@@ -3555,10 +3617,12 @@
   function updateBadges(pulseCards=false){
     $('#badge-posts').textContent = posts.length + stories.length;
     $('#badge-studio').textContent = studioEvents.length;
-    $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length + checklistExtra.filter(c=>!c.done).length;
+    $('#badge-checklist').textContent = cards.filter(c=>c.status==='a-gravar').length
+      + checklistExtra.filter(c=>!c.done).length
+      + posts.filter(p=> !isVideoFmt(p.formato) && profsDoPost(p).length && p.status!=='postado' && !p.gravado).length;
     $('#badge-kanban').textContent = posts.filter(p=> !FEITO(p.status)).length;
     $('#badge-team').textContent = people.length;
-    $('#badge-postsprof').textContent = posts.filter(p=> p.professor && p.professor.trim() && p.status!=='postado').length;
+    $('#badge-postsprof').textContent = posts.filter(p=> profsDoPost(p).length && p.status!=='postado').length;
     const todayStr0 = fmtDateFromObj(new Date());
     $('#badge-events').textContent = eventos.filter(ev=> ev.date >= todayStr0).length;
     $('#badge-outros').textContent = outros.filter(o=> o.status !== 'concluido').length;
@@ -3641,7 +3705,7 @@
     }
     fillSelect('#filterKanbanResp', respNames, 'Todos os responsáveis', filterKanbanResp);
 
-    ['#postProfessor','#roteiroProf','#solicProf'].forEach(sel=>{
+    ['#roteiroProf','#solicProf'].forEach(sel=>{
       const el = $(sel); if(!el) return;
       const cur = el.value;
       el.innerHTML = '<option value="">Sem professor</option>' +
@@ -3990,7 +4054,8 @@
     sel.value = selectedName || '';
   }
 
-  function openPostModal(dateStr, postId){
+  function openPostModal(dateStr, postId, prefillProf){
+    const prefillProfPost = prefillProf || '';
     editingPostDate = dateStr;
     editingPostId = postId;
     const overlay = $('#overlayPost');
@@ -4010,7 +4075,7 @@
       selectFmt(p.formato);
       populateResponsavelSelect(p.responsavel);
       refreshFilterOptions();
-      $('#postProfessor').value = p.professor || '';
+      selectedPostProfs = profsDoPost(p);
       postAnexos = (p.anexos || []).slice();
       $('#postStatus').value = p.status || 'producao';
       $('#btnDeletePost').style.display='inline-flex';
@@ -4026,11 +4091,12 @@
       selectFmt('Feed');
       populateResponsavelSelect('');
       refreshFilterOptions();
-      $('#postProfessor').value = '';
+      selectedPostProfs = prefillProfPost ? [prefillProfPost] : [];
       postAnexos = [];
       $('#postStatus').value = 'producao';
       $('#btnDeletePost').style.display='none';
     }
+    montaProfPicker('#postProfPicker', selectedPostProfs);
     refreshPostAnexosUI();
     overlay.classList.add('show');
   }
@@ -4113,7 +4179,7 @@
       post.horario = horario; post.formato = selectedFmt; post.tema = tema; post.responsavel = responsavel;
       post.status = $('#postStatus').value || 'producao';
       post.arte = $('#postArte').value.trim(); post.referencia = $('#postReferencia').value.trim();
-      post.professor = $('#postProfessor').value;
+      post.professor = selectedPostProfs.join(', ');
       post.carrosselTipo = (selectedFmt==='Carrossel') ? selectedCarrossel : '';
       post.reelsTipo = (selectedFmt==='Reels') ? selectedReels : '';
       post.gravado = isVideoFmt(selectedFmt) ? selectedGravado : false;
@@ -4121,7 +4187,7 @@
     } else {
       post = { id: uid(), date: editingPostDate, horario, formato: selectedFmt, tema, responsavel, status: ($('#postStatus').value || 'producao'),
                texto: '', arte: $('#postArte').value.trim(), referencia: $('#postReferencia').value.trim(),
-               professor: $('#postProfessor').value,
+               professor: selectedPostProfs.join(', '),
                carrosselTipo: (selectedFmt==='Carrossel') ? selectedCarrossel : '',
                reelsTipo: (selectedFmt==='Reels') ? selectedReels : '',
                gravado: isVideoFmt(selectedFmt) ? selectedGravado : false,
@@ -4145,9 +4211,12 @@
         linked.dataPostagem = post.date;
         linked.formato = selectedFmt;
         linked.etapa = post.status || 'producao';
-        if(!profsDoCard(linked).length && post.professor){ linked.prof = post.professor; linked.profs = [post.professor]; }
+        if(!profsDoCard(linked).length && profsDoPost(post).length){
+          linked.prof = profsDoPost(post)[0];
+          linked.profs = profsDoPost(post);
+        }
       } else {
-        linked = { id: uid(), tema, prof: post.professor || '', profs: post.professor ? [post.professor] : [], ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
+        linked = { id: uid(), tema, prof: profsDoPost(post)[0] || '', profs: profsDoPost(post), ref: post.referencia || '', copy: post.texto || '', status:'a-gravar', fromPostId: post.id, formato: selectedFmt, local:'', dataPostagem: post.date, etapa: post.status || 'producao' };
         cards.push(linked);
         updateBadges(true);
         toast(ICONS.film + ' Entrou como obrigatória no Checklist de Gravação');
@@ -4749,9 +4818,9 @@
         post.date = card.dataPostagem;
         post.formato = card.formato;
         if(card.etapa) post.status = card.etapa;
-        if(!post.professor && profsDoCard(card).length) post.professor = profsDoCard(card)[0];
+        if(!profsDoPost(post).length && profsDoCard(card).length) post.professor = profsDoCard(card).join(', ');
       } else {
-        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel:'', professor: profsDoCard(card)[0] || '', status: card.etapa || 'producao', fromCardId: card.id };
+        post = { id: uid(), date: card.dataPostagem, horario:'09:00', formato: card.formato, tema: card.tema, responsavel:'', professor: profsDoCard(card).join(', '), status: card.etapa || 'producao', fromCardId: card.id };
         posts.push(post);
         toast(ICONS.calendar + ' Também entrou no Cronograma e na Produção');
       }
@@ -5245,8 +5314,20 @@
     const manuais = checklistExtra.filter(c=> (!filterChecklistProf || c.prof === filterChecklistProf)
       && passaTipo(c.tipo || 'video'));
 
+    // posts que não são de vídeo mas têm professor marcado: viram foto obrigatória,
+    // na data em que o post vai ao ar. (os de vídeo já entram pelo card de gravação)
+    const dosPostsFoto = posts.filter(p=> !isVideoFmt(p.formato)
+      && profsDoPost(p).length
+      && p.status !== 'postado'
+      && (!filterChecklistProf || profsDoPost(p).includes(filterChecklistProf))
+      && passaTipo('foto'))
+      .map(p=> ({ id:'post-'+p.id, tema:(p.tema || p.formato), tipo:'foto',
+                  dataPostagem:p.date, _post:p }));
+
     const ce = $('#checklistExtraCount');
-    if(ce) ce.textContent = doCronograma.length + manuais.filter(c=> !c.done).length;
+    if(ce) ce.textContent = doCronograma.length
+      + dosPostsFoto.filter(it=> !it._post.gravado).length
+      + manuais.filter(c=> !c.done).length;
 
     const grupos = new Map();
     const put = (nome, secao, item)=>{
@@ -5259,6 +5340,7 @@
       if(nomes.length) nomes.forEach(n=> put(n, 'obrig', c));
       else put('', 'obrig', c);
     });
+    dosPostsFoto.forEach(it=> profsDoPost(it._post).forEach(n=> put(n, 'obrig', it)));
     manuais.forEach(c=> put(c.prof, c.obrigatoria ? 'obrig' : 'extra', c));
 
     const nomes = Array.from(grupos.keys()).sort((a,b)=>{
@@ -5280,12 +5362,14 @@
 
     // um item pode ser um card do cronograma ou um item manual
     const montaLinha = (item, ehCard)=>{
-      const feito = ehCard ? (item.status === 'concluido') : !!item.done;
+      const ehPost = !!item._post;
+      const feito = ehCard ? (item.status === 'concluido')
+                  : (ehPost ? !!item._post.gravado : !!item.done);
       const tipo  = ehCard ? 'video' : (item.tipo || 'video');
       const row = document.createElement('div');
       row.className = 'check-item' + (feito ? ' done' : '');
-      const meta = ehCard
-        ? ['do cronograma de posts', item.local ? escapeHtml(item.local) : '', item.dataPostagem ? 'posta em ' + formatDatePt(item.dataPostagem) : '']
+      const meta = (ehCard || ehPost)
+        ? ['do cronograma de posts', (ehCard && item.local) ? escapeHtml(item.local) : '', item.dataPostagem ? 'posta em ' + formatDatePt(item.dataPostagem) : '']
             .filter(Boolean).join(' · ')
         : '';
       row.innerHTML =
@@ -5294,13 +5378,17 @@
           '<span class="ci-tag" style="background:' + TIPO_COR[tipo] + '">' + TIPO_LABEL[tipo] + '</span>' +
           (meta ? '<div class="minha-meta">' + meta + '</div>' : '') +
         '</div>' +
-        (ehCard ? '' : '<button class="anexo-btn del ci-del" title="Excluir">' + ICONS.trash + '</button>');
+        ((ehCard || ehPost) ? '' : '<button class="anexo-btn del ci-del" title="Excluir">' + ICONS.trash + '</button>');
 
       row.querySelector('.todo-check').addEventListener('click', async (e)=>{
         e.stopPropagation();
         if(ehCard){
           item.status = (item.status === 'concluido') ? 'a-gravar' : 'concluido';
           await saveCards();
+        } else if(ehPost){
+          item._post.gravado = !item._post.gravado;
+          await savePosts();
+          renderCalendar();
         } else {
           item.done = !item.done;
           await saveChecklistExtra();
@@ -5320,12 +5408,16 @@
         if(e.target.closest('.todo-check')) return;
         openCardModal(item.id);
       });
+      if(ehPost) row.addEventListener('click', (e)=>{
+        if(e.target.closest('.todo-check')) return;
+        openPostModal(item._post.date, item._post.id);
+      });
       return row;
     };
 
     nomes.forEach(nome=>{
       const g = grupos.get(nome);
-      const pendentes = g.obrig.filter(x=> x.status ? x.status !== 'concluido' : !x.done).length
+      const pendentes = g.obrig.filter(x=> x._post ? !x._post.gravado : (x.status ? x.status !== 'concluido' : !x.done)).length
                       + g.extra.filter(x=> !x.done).length;
       const iniciais = nome === 'Sem prof definido' ? '?' : nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
@@ -5346,7 +5438,7 @@
         lab.textContent = 'Obrigatórias';
         body.appendChild(lab);
       }
-      g.obrig.forEach(item=> body.appendChild(montaLinha(item, !!item.status)));
+      g.obrig.forEach(item=> body.appendChild(montaLinha(item, !item._post && !!item.status)));
 
       if(g.extra.length){
         const lab = document.createElement('div');
@@ -5385,9 +5477,9 @@
     if(!grid) return;
     const empty = $('#ppEmpty');
 
-    const comProf = posts.filter(p=> p.professor && p.professor.trim());
+    const comProf = posts.filter(p=> profsDoPost(p).length);
     const lista = comProf.filter(p=>{
-      if(filterPPProf && p.professor.trim() !== filterPPProf) return false;
+      if(filterPPProf && !profsDoPost(p).includes(filterPPProf)) return false;
       if(filterPPStatus === 'postado' && p.status !== 'postado') return false;
       if(filterPPStatus === 'pendente' && p.status === 'postado') return false;
       return true;
@@ -5407,9 +5499,11 @@
 
     const grupos = new Map();
     lista.forEach(p=>{
-      const k = p.professor.trim();
-      if(!grupos.has(k)) grupos.set(k, []);
-      grupos.get(k).push(p);
+      // post com vários profs aparece no card de cada um deles
+      profsDoPost(p).forEach(k=>{
+        if(!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(p);
+      });
     });
 
     Array.from(grupos.keys()).sort((a,b)=> a.localeCompare(b)).forEach(nome=>{
@@ -6249,7 +6343,10 @@
         studioEvents.forEach(e=>{
           if(profsDoEvento(e).includes(nomeAntigo)){ e.professores = troca(profsDoEvento(e)); e.professor = e.professores[0] || ''; }
         });
-        posts.forEach(p=>{ if(p.professor===nomeAntigo) p.professor = nome; });
+        posts.forEach(p=>{
+          const l = profsDoPost(p);
+          if(l.includes(nomeAntigo)) p.professor = l.map(n=> n===nomeAntigo ? nome : n).join(', ');
+        });
         roteiros.forEach(r=>{ if(r.prof===nomeAntigo) r.prof = nome; });
         checklistExtra.forEach(c=>{ if(c.prof===nomeAntigo) c.prof = nome; });
         await saveCards(); await saveStudioEvents(); await savePosts(); await saveRoteiros(); await saveChecklistExtra();
@@ -7314,7 +7411,7 @@
         const post = posts.find(p=> p.trelloId === it.trelloId);
         if(!post || !isVideoFmt(post.formato) || post.formato === 'Story' || post.gravado) return;
         if(cards.some(c=> c.fromPostId === post.id)) return;
-        cards.push({ id: uid(), tema: post.tema, prof: post.professor || '', profs: post.professor ? [post.professor] : [],
+        cards.push({ id: uid(), tema: post.tema, prof: profsDoPost(post)[0] || '', profs: profsDoPost(post),
                      ref: post.referencia || '', copy: '', status: 'a-gravar', fromPostId: post.id,
                      formato: post.formato, local: '', dataPostagem: post.date, etapa: post.status || 'producao' });
         novosCards++;
