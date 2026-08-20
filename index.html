@@ -2975,33 +2975,104 @@
     let m = txt.match(/find the '([^']+)' column/) || txt.match(/column "([^"]+)"/);
     return m ? m[1] : null;
   }
-  async function dbSync(table, rows){
-    if(rows.length){
-      let payload = rows;
-      for(let attempt=0; attempt<5; attempt++){
-        const res = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
-          method: 'POST',
-          headers: dbHeaders({ 'Prefer': 'resolution=merge-duplicates' }),
-          body: JSON.stringify(payload)
-        });
-        if(res.ok) break;
-        const txt = await res.text();
-        const col = missingColumnFrom(txt);
-        // se for coluna que ainda não existe no schema, remove e tenta de novo (degrada com elegância)
-        if(col && payload.some(r=> Object.prototype.hasOwnProperty.call(r, col))){
-          payload = payload.map(r=>{ const c={...r}; delete c[col]; return c; });
-          continue;
-        }
-        throw new Error(table + ': ' + txt);
+  // ---------- SYNC INCREMENTAL ----------
+  // Antes: todo save reenviava a tabela inteira e mandava um DELETE com "id not in (todos os ids)".
+  // Com 149 posts (alguns com imagem em base64) isso estourava o statement timeout do Postgres.
+  // Agora guardamos uma "foto" do que já está salvo e mandamos só o que mudou.
+
+  const _snapshot = {};   // table -> Map(id -> json canônico do que está no banco)
+  const _fila = {};       // table -> Promise (serializa saves do mesmo table)
+
+  // JSON com chaves em ordem alfabética, pra comparação ser confiável
+  function _canon(obj){
+    const chaves = Object.keys(obj).sort();
+    const plano = {};
+    for(const k of chaves) plano[k] = obj[k];
+    return JSON.stringify(plano);
+  }
+
+  // marca o estado atual como "já salvo" (usado depois de carregar do banco)
+  function seedSnapshot(table, rows){
+    const m = new Map();
+    for(const r of rows) m.set(r.id, _canon(r));
+    _snapshot[table] = m;
+  }
+
+  function _chunk(arr, n){
+    const out = [];
+    for(let i=0; i<arr.length; i+=n) out.push(arr.slice(i, i+n));
+    return out;
+  }
+
+  async function _upsertLote(table, payload){
+    for(let attempt=0; attempt<5; attempt++){
+      const res = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
+        method: 'POST',
+        headers: dbHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify(payload)
+      });
+      if(res.ok) return payload;
+      const txt = await res.text();
+      const col = missingColumnFrom(txt);
+      // coluna que ainda não existe no schema: remove e tenta de novo (degrada com elegância)
+      if(col && payload.some(r=> Object.prototype.hasOwnProperty.call(r, col))){
+        payload = payload.map(r=>{ const c={...r}; delete c[col]; return c; });
+        continue;
       }
+      throw new Error(table + ': ' + txt);
     }
-    const ids = rows.map(r=>r.id);
-    let url = SUPABASE_URL + '/rest/v1/' + table;
-    url += ids.length
-      ? '?id=not.in.(' + ids.map(i=>'"'+i+'"').join(',') + ')'
-      : '?id=not.is.null';
-    const del = await fetch(url, { method:'DELETE', headers: dbHeaders() });
-    if(!del.ok) throw new Error(table + ': ' + await del.text());
+    throw new Error(table + ': não deu pra salvar depois de 5 tentativas');
+  }
+
+  async function _deleteIds(table, ids){
+    for(const lote of _chunk(ids, 50)){
+      const url = SUPABASE_URL + '/rest/v1/' + table
+        + '?id=in.(' + lote.map(i=>'"'+i+'"').join(',') + ')';
+      const del = await fetch(url, { method:'DELETE', headers: dbHeaders({ 'Prefer':'return=minimal' }) });
+      if(!del.ok) throw new Error(table + ': ' + await del.text());
+    }
+  }
+
+  async function _sincroniza(table, rows){
+    const antes = _snapshot[table];
+
+    // sem foto anterior (primeiro save antes de carregar): sobe tudo, mas sem o DELETE gigante
+    if(!antes){
+      for(const lote of _chunk(rows, 40)) await _upsertLote(table, lote);
+      seedSnapshot(table, rows);
+      return;
+    }
+
+    const agora = new Map();
+    const mudou = [];
+    for(const r of rows){
+      const c = _canon(r);
+      agora.set(r.id, c);
+      if(antes.get(r.id) !== c) mudou.push(r);
+    }
+    const removidos = [];
+    for(const id of antes.keys()) if(!agora.has(id)) removidos.push(id);
+
+    // nada mudou: sai na hora (isso sozinho mata os saves duplicados por clique)
+    if(!mudou.length && !removidos.length) return;
+
+    for(const lote of _chunk(mudou, 40)){
+      const salvos = await _upsertLote(table, lote);
+      // atualiza a foto lote a lote: se o próximo falhar, o que já subiu continua marcado
+      for(const r of salvos) antes.set(r.id, agora.get(r.id));
+    }
+    if(removidos.length){
+      await _deleteIds(table, removidos);
+      for(const id of removidos) antes.delete(id);
+    }
+  }
+
+  // saves do mesmo table entram em fila pra não correrem um por cima do outro
+  function dbSync(table, rows){
+    const anterior = _fila[table] || Promise.resolve();
+    const proxima = anterior.catch(()=>{}).then(()=> _sincroniza(table, rows));
+    _fila[table] = proxima.catch(()=>{});
+    return proxima;
   }
 
   // um card de gravação (ou evento de estúdio) pode ter vários profs
@@ -3036,7 +3107,7 @@
     try{ const a = JSON.parse(v); return Array.isArray(a) ? a : []; }catch(_){ return []; }
   }
 
-  const MAX_ANEXO_BYTES = 4 * 1024 * 1024;        // limite pra guardar dentro do banco (imagem/PDF pequeno)
+  const MAX_ANEXO_BYTES = 600 * 1024;             // acima disso vai pro Storage em vez de virar base64 no banco
   const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;     // limite pro arquivo ir pro Storage (vídeo)
   const BUCKET = 'anexos';
 
@@ -3377,6 +3448,13 @@
       solicitacoes   = so.map(MAP.solicitacoes.from);
       stories        = stx.map(MAP.stories.from);
       modelos        = mo.map(MAP.modelos.from);
+
+      // registra o que veio do banco como "já salvo", pra saber depois o que de fato mudou
+      const cru = { posts:p, cards:c, studio_events:s, checklist_extra:ce, eventos:ev, outros:ou,
+                    professores:pr, roteiros:ro, projetos:pj, solicitacoes:so, stories:stx, modelos:mo };
+      for(const t in cru){
+        try{ seedSnapshot(t, cru[t].map(r=> MAP[t].to(MAP[t].from(r)))); }catch(_){}
+      }
     }catch(e){
       console.error('Erro ao carregar dados', e);
       showDbError('carregar', e);
@@ -7283,6 +7361,7 @@
     try{
       const pe = await dbSelect('people');
       people = pe.map(MAP.people.from);
+      try{ seedSnapshot('people', pe.map(r=> MAP.people.to(MAP.people.from(r)))); }catch(_){}
     }catch(e){
       console.error('Erro ao carregar equipe', e);
       people = [];
